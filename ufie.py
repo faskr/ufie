@@ -137,12 +137,12 @@ if __name__ == '__main__':
 
 # Universal Function Interpolator and Extrapolator
 # Receives:
-# - list of polynomial coefficients along with training data parameters (e.g. how many samples, size of each sample)
-# - collection of training parameters (including whether to train from x values or y values)
-# - desired prediction length (done)
+# - list of polynomial coefficients along with training data parameters (e.g. how many samples, interval of each sample)
+# - collection of training parameters
+# - desired prediction length
 # Does the following:
 # - generates polynomials for training and testing
-# - trains on a subset of the generated data while testing on the other subset
+# - trains on a subset of the generated data while testing on the other subset (uses both x_k and y_(k-1) as inputs to predict y_k)
 # - approximates and predicts the function that has the given coefficients
 # Outputs:
 # - a plot (as a subplot) of

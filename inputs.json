@@ -1,0 +1,20 @@
+{
+    "data": {
+        "poly": [0, 0, 1],
+        "num_datasets": 100,
+        "num_samples": 100,
+        "start": 0,
+        "separation": 1,
+        "shift": 4,
+        "total_scale": 1,
+        "equation_scale": 0,
+        "term_scale": 0
+    },
+    "model": {
+        "depth": 2,
+        "breadth": 40,
+        "lrh": 10,
+        "steps": 2000
+    },
+    "prediction_length": 100
+}
