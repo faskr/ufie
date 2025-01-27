@@ -135,6 +135,13 @@ if __name__ == '__main__':
     data = torch.load('traindata.pt')
     converge(data, opt.depth, opt.breadth, lr, opt.steps, opt.future)
 
+# Tasks
+# - include x_k (along with y_(k-1)) as an input to the nn that models y_k
+# - import code from generate_polynomial.py into ufie.py
+# - create the appropriate classes for different sections of code
+# - use inputs.json instead of command line parameters
+# - incorporate non-polynomial functions (trigonometric, exponential, logarithmic, etc.)
+
 # Universal Function Interpolator and Extrapolator
 # Receives:
 # - list of polynomial coefficients along with training data parameters (e.g. how many samples, interval of each sample)
