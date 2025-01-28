@@ -4,7 +4,7 @@ import argparse
 
 # TODO: move generate_polynomial into ufie.py
 
-np.random.seed(2)
+np.random.seed(0)
 
 def generate_polynomial(opt, coefficients):
     # Generate input data
@@ -13,10 +13,10 @@ def generate_polynomial(opt, coefficients):
     x = np.array(range(opt.start, stop, opt.separation)) + shift
     # Generate output data
     equation_scale = opt.equation_scale * np.random.rand(opt.number).reshape(opt.number, 1)
-    data = np.zeros(x.shape)
+    data = np.dstack([x, np.zeros(x.shape)])
     for k, c in enumerate(coefficients):
         term_scale = opt.term_scale * np.random.rand(opt.number).reshape(opt.number, 1)
-        data += (opt.total_scale + equation_scale + term_scale) * c * np.pow(x, k)
+        data[:, :, 1] += (opt.total_scale + equation_scale + term_scale) * c * np.pow(x, k)
     # Display & save
     #print(data[:10])
     torch.save(data.astype('float64'), open('traindata.pt', 'wb'))
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     
     # temporary assignments
-    opt.shift = 4
+    #opt.shift = 4
     coefficients = [0, 0, 1]
 
     generate_polynomial(opt, coefficients)

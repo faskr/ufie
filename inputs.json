@@ -11,10 +11,10 @@
         "term_scale": 0
     },
     "model": {
-        "depth": 2,
+        "depth": 1,
         "breadth": 40,
-        "lrh": 10,
-        "steps": 2000
+        "lr": 0.01,
+        "steps": 1000
     },
     "prediction_length": 100
 }
