@@ -2,12 +2,30 @@ from __future__ import print_function
 import argparse
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
+#import torch.nn.functional as F
+#import torch.optim as optim
+from os import path
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
+def generate_polynomial(opt, coefficients):
+    # set random seed to 0
+    np.random.seed(0)
+    # Generate input data
+    stop = opt.start + opt.length * opt.separation
+    shift = np.random.randint(-opt.shift, opt.shift + 1, opt.number).reshape(opt.number, 1)
+    x = np.array(range(opt.start, stop, opt.separation)) + shift
+    # Generate output data
+    equation_scale = opt.equation_scale * np.random.rand(opt.number).reshape(opt.number, 1)
+    data = np.dstack([x, np.zeros(x.shape)])
+    for k, c in enumerate(coefficients):
+        term_scale = opt.term_scale * np.random.rand(opt.number).reshape(opt.number, 1)
+        data[:, :, 1] += (opt.total_scale + equation_scale + term_scale) * c * np.pow(x, k)
+    # Display & save
+    #print(data[:10])
+    torch.save(data.astype('float64'), open('traindata.pt', 'wb'))
 
 class Net(nn.Module):
     def __init__(self, depthH=1, breadth=40):
@@ -27,18 +45,14 @@ class Net(nn.Module):
 
     def forward(self, x_interp, y_prev_interp, x_extrap=torch.empty((1, 0))):
         assert x_interp.size(1) == y_prev_interp.size(1)
-        #print(x_interp.size())
-        outputs = []
-        for i in range(x_interp.size(1)):
-            input = torch.from_numpy(np.hstack([x_interp.split(1, dim=1)[i], y_prev_interp.split(1, dim=1)[i]]))
-            output = self.network(input) # TODO: This should probably be taken out of the for loop and put into a single linearized call
-            outputs += [output]
-        for i in range(x_extrap.size(1)):# if we should predict the future
-            input = torch.from_numpy(np.hstack([x_extrap.split(1, dim=1)[i], output]))
-            output = self.network(input)
-            outputs += [output]
-        outputs = torch.cat(outputs, dim=1)
-        return outputs
+        input = torch.cat([x_interp[:, :, None], y_prev_interp[:, :, None]], dim=2)
+        output_tensor = self.network(input)[:, :, 0]
+        output_list = list(output_tensor.split(1, dim=1))
+        for i in range(x_extrap.size(1)): # if we should predict the future
+            input = torch.cat([x_extrap[:, i, None], output_list[-1]], dim=1)
+            output_list += [self.network(input)]
+        output_tensor = torch.cat(output_list, dim=1)
+        return output_tensor
 
 def draw_prediction(i, y, input_size, future):
     plt.figure(figsize=(30,10))
@@ -137,17 +151,30 @@ future = 100
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--regenerate_data', type=bool, default=False, help='regenerate training data if already present')
+    parser.add_argument('--number', type=int, default=100, help='number of datasets')
+    parser.add_argument('--length', type=int, default=100, help='number of samples per dataset')
+    parser.add_argument('--start', type=float, default=0, help='first sample')
+    parser.add_argument('--separation', type=float, default=1, help='separation between one sample and the next')
+    parser.add_argument('--shift', type=int, default=0, help='limit of random shift')
+    parser.add_argument('--total_scale', type=float, default=1, help='component of scale that applies to all equations')
+    parser.add_argument('--equation_scale', type=float, default=0, help='limit of random component of scale that applies to the full equation')
+    parser.add_argument('--term_scale', type=float, default=0, help='limit of random component of scale that applies to one term in the equation')
     parser.add_argument('--depth', type=int, default=depthH, help='nn depth (hidden layers)')
     parser.add_argument('--breadth', type=int, default=breadth, help='nn breadth')
-    parser.add_argument('--lr', type=float, default=lr, help='learning rate in thousandths')
+    parser.add_argument('--lr', type=float, default=lr, help='learning rate')
     parser.add_argument('--steps', type=int, default=steps, help='steps to run')
     parser.add_argument('--future', type=int, default=future, help='number of future inputs to predict the outputs for')
     opt = parser.parse_args()
+    if opt.regenerate_data or not path.isfile('traindata.pt'):
+        print('Generating data...')
+        #opt.shift = 4
+        coefficients = [0, 0, 1]
+        generate_polynomial(opt, coefficients)
     data = torch.load('traindata.pt')
     converge(data, opt.depth, opt.breadth, opt.lr, opt.steps, opt.future)
 
 # Tasks
-# - import code from generate_polynomial.py into ufie.py
 # - create the appropriate classes for different sections of code
 # - have more convenient plots (e.g. real-time updating, more precision in some numbers, outputs put into a sub-folder)
 # - implement desired plots
