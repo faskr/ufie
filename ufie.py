@@ -81,14 +81,6 @@ def draw_convergence(train_losses, test_losses, recorded_steps, depthH, breadth,
     plt.legend(['Training', 'Testing'])
     plt.savefig('convergence_%d_%dx%d_%.2flr_%ds.pdf' % (test_losses[-1], depthH, breadth, lr, steps))
 
-def predict(model, x_interp, y_prev_interp, x_extrap, criterion, test_target, future=100):
-    # begin to predict, no need to track gradient here
-    with torch.no_grad():
-        pred = model(x_interp, y_prev_interp, x_extrap)
-        loss = criterion(pred[:, :-future], test_target)
-        y = pred.detach().numpy()
-        return y, loss
-
 def converge(data, depthH=1, breadth=40, lr=0.01, steps=1000, future=100):
     # set random seed to 0
     np.random.seed(0)
@@ -127,13 +119,20 @@ def converge(data, depthH=1, breadth=40, lr=0.01, steps=1000, future=100):
             train_losses.append(loss.item())
         loss.backward()
         return loss
+    def predict():
+        # begin to predict, no need to track gradient here
+        with torch.no_grad():
+            pred = model(test_x_interp, test_y_prev_interp, test_x_extrap)
+            loss = criterion(pred[:, :-future], test_target)
+            y = pred.detach().numpy()
+            return y, loss
 
     #begin to train
     for i in range(1, steps + 1):
         if i % step_size == 0:
             print('STEP: ', i)
         optimizer.step(calculate_error)
-        y, loss = predict(model, test_x_interp, test_y_prev_interp, test_x_extrap, criterion, test_target, future)
+        y, loss = predict()
         # outputs
         if i % step_size == 0:
             print('test loss:', loss.item())
@@ -175,7 +174,7 @@ if __name__ == '__main__':
     converge(data, opt.depth, opt.breadth, opt.lr, opt.steps, opt.future)
 
 # Tasks
-# - create the appropriate classes for different sections of code
+# - organize code better (move plotting functions into a different module, & use modules/classes to organize whatever else)
 # - have more convenient plots (e.g. real-time updating, more precision in some numbers, outputs put into a sub-folder)
 # - implement desired plots
 # - have option to change number or proportion of train vs. test data
