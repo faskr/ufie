@@ -61,17 +61,17 @@ class UFIE:
         else:
             data = torch.load('traindata.pt')
         # load data and make training set
-        test_size = 3
-        self.x_interp_train = torch.from_numpy(data[test_size:, 1:, 0])
-        self.x_interp_test = torch.from_numpy(data[:test_size, 1:, 0])
-        self.y_prev_interp_train = torch.from_numpy(data[test_size:, :-1, 1])
-        self.y_prev_interp_test = torch.from_numpy(data[:test_size, :-1, 1])
-        self.target_train = torch.from_numpy(data[test_size:, 1:, 1])
-        self.target_test = torch.from_numpy(data[:test_size, 1:, 1])
+        self.test_size = 3
+        self.x_interp_train = torch.from_numpy(data[self.test_size:, 1:, 0])
+        self.x_interp_test = torch.from_numpy(data[:self.test_size, 1:, 0])
+        self.y_prev_interp_train = torch.from_numpy(data[self.test_size:, :-1, 1])
+        self.y_prev_interp_test = torch.from_numpy(data[:self.test_size, :-1, 1])
+        self.target_train = torch.from_numpy(data[self.test_size:, 1:, 1])
+        self.target_test = torch.from_numpy(data[:self.test_size, 1:, 1])
         step = data[0, -1, 0] - data[0, -2, 0]
         start = data[0, -1, 0] + step
         stop = start + opt.prediction_size * step
-        shift = data[:test_size, -1, 0].reshape(test_size, 1) + step - start
+        shift = data[:self.test_size, -1, 0].reshape(self.test_size, 1) + step - start
         self.x_extrap = torch.from_numpy(np.arange(start, stop, step) + shift)
         # build the model
         self.model = FunctionModel(opt.depth, opt.breadth)
@@ -119,6 +119,7 @@ class UFIE:
             return y, loss
     
     def converge(self):
+        plot_pred = LivePrediction()
         #begin to train
         for self.iteration in range(1, self.steps + 1):
             if self.iteration % self.step_size == 0:
@@ -130,7 +131,7 @@ class UFIE:
                 print('test loss:', loss.item())
                 self.test_losses.append(loss.item())
             if self.iteration % (4 * self.step_size) == 0:
-                draw_prediction(self.iteration, y, self.x_interp_train.size(1), self.prediction_size)
+                plot_pred.draw_prediction(self.iteration, y, self.x_interp_train.size(1), self.prediction_size, self.test_size)
         draw_convergence(self.train_losses, self.test_losses, self.recorded_steps, self.depth, self.breadth, self.lr, self.steps)
 
 if __name__ == '__main__':
@@ -155,10 +156,11 @@ if __name__ == '__main__':
     ufie.converge()
 
 # Tasks
-# - have more convenient plots (e.g. real-time updating, more precision in some numbers, outputs put into a sub-folder)
+# - have more convenient plots (e.g. real-time updating)
 # - implement desired plots
 # - have option to change number or proportion of train vs. test data
 # - use inputs.json instead of command line parameters
+# - test different polynomials with different configurations
 # - incorporate non-polynomial functions (trigonometric, exponential, logarithmic, etc.)
 # - might possibly need to have an option to disable either x_k or y_(k-1) parameter for certain functions
 
