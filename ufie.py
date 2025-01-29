@@ -9,6 +9,7 @@ import numpy as np
 from plots import *
 
 np.random.seed(0)
+torch.manual_seed(0)
 
 def generate_polynomial(opt, coefficients):
     # Generate input data
