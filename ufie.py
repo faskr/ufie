@@ -6,13 +6,11 @@ import torch.nn as nn
 #import torch.optim as optim
 from os import path
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+from plots import *
+
+np.random.seed(0)
 
 def generate_polynomial(opt, coefficients):
-    # set random seed to 0
-    np.random.seed(0)
     # Generate input data
     stop = opt.start + opt.length * opt.separation
     shift = np.random.randint(-opt.shift, opt.shift + 1, opt.number).reshape(opt.number, 1)
@@ -23,9 +21,8 @@ def generate_polynomial(opt, coefficients):
     for k, c in enumerate(coefficients):
         term_scale = opt.term_scale * np.random.rand(opt.number).reshape(opt.number, 1)
         data[:, :, 1] += (opt.total_scale + equation_scale + term_scale) * c * np.pow(x, k)
-    # Display & save
     #print(data[:10])
-    torch.save(data.astype('float64'), open('traindata.pt', 'wb'))
+    return data
 
 class Net(nn.Module):
     def __init__(self, depthH=1, breadth=40):
@@ -54,93 +51,71 @@ class Net(nn.Module):
         output_tensor = torch.cat(output_list, dim=1)
         return output_tensor
 
-def draw_prediction(i, y, input_size, future):
-    plt.figure(figsize=(30,10))
-    plt.title('Predict future values for time sequences\n(Dashlines are predicted values)', fontsize=30)
-    plt.xlabel('x', fontsize=20)
-    plt.ylabel('y', fontsize=20)
-    plt.xticks(fontsize=20)
-    plt.yticks(fontsize=20)
-    def draw(yi, color):
-        plt.plot(np.arange(input_size), yi[:input_size], color, linewidth = 2.0)
-        plt.plot(np.arange(input_size, input_size + future), yi[input_size:], color + ':', linewidth = 2.0)
-    draw(y[0], 'r')
-    draw(y[1], 'g')
-    draw(y[2], 'b')
-    plt.savefig('predict%d.pdf'%i)
-    plt.close()
-
-def draw_convergence(train_losses, test_losses, recorded_steps, depthH, breadth, lr, steps):
-    plt.figure()
-    plt.title('Convergence (train=%d, test=%d)' % (train_losses[-1], test_losses[-1]))
-    plt.xlabel('step')
-    plt.ylabel('loss')
-    plt.plot(recorded_steps, train_losses, 'b')
-    plt.plot(recorded_steps, test_losses, 'r')
-    plt.yscale('log')
-    plt.legend(['Training', 'Testing'])
-    plt.savefig('convergence_%d_%dx%d_%.2flr_%ds.pdf' % (test_losses[-1], depthH, breadth, lr, steps))
-
-def converge(data, depthH=1, breadth=40, lr=0.01, steps=1000, future=100):
-    # set random seed to 0
-    np.random.seed(0)
-    torch.manual_seed(0)
-    # load data and make training set
-    x_interp = torch.from_numpy(data[3:, 1:, 0])
-    y_prev_interp = torch.from_numpy(data[3:, :-1, 1])
-    target = torch.from_numpy(data[3:, 1:, 1])
-    test_x_interp = torch.from_numpy(data[:3, :-1, 0])
-    test_y_prev_interp = torch.from_numpy(data[:3, :-1, 1])
-    step = data[0, -1, 0] - data[0, -2, 0]
-    start = data[0, -1, 0] + step
-    stop = start + future * step
-    shift = data[:, -1, 0].reshape(data.shape[0], 1) + step - start
-    x_extrap_np = np.array(np.arange(start, stop, step)) + shift
-    test_x_extrap = torch.from_numpy(x_extrap_np[:3, :])
-    test_target = torch.from_numpy(data[:3, 1:, 1])
-    # build the model
-    model = Net(depthH, breadth)
-    model.double()
-    criterion = nn.MSELoss()
-    # use LBFGS as optimizer since we can load the whole data to train
-    #optimizer = optim.LBFGS(model.parameters(), lr=lr)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    recorded_steps = []
-    train_losses = []
-    test_losses = []
-    step_size = 25
-    def calculate_error():
-        optimizer.zero_grad()
-        out = model(x_interp, y_prev_interp)
-        loss = criterion(out, target)
-        if i % step_size == 0:
+class UFIE:
+    def __init__(self, data, depthH=1, breadth=40, lr=0.01, steps=1000, future=100):
+        # assign variables for the sake of labeling the data later
+        self.depthH = depthH
+        self.breadth = breadth
+        self.lr = lr
+        self.steps = steps
+        self.future = future
+        # load data and make training set
+        self.x_interp_train = torch.from_numpy(data[3:, 1:, 0])
+        self.x_interp_test = torch.from_numpy(data[:3, 1:, 0])
+        self.y_prev_interp_train = torch.from_numpy(data[3:, :-1, 1])
+        self.y_prev_interp_test = torch.from_numpy(data[:3, :-1, 1])
+        self.target_train = torch.from_numpy(data[3:, 1:, 1])
+        self.target_test = torch.from_numpy(data[:3, 1:, 1])
+        step = data[0, -1, 0] - data[0, -2, 0]
+        start = data[0, -1, 0] + step
+        stop = start + future * step
+        shift = data[:3, -1, 0].reshape(3, 1) + step - start
+        self.x_extrap = torch.from_numpy(np.arange(start, stop, step) + shift)
+        # build the model
+        self.model = Net(depthH, breadth)
+        self.model.double()
+        self.criterion = nn.MSELoss()
+        # use LBFGS as optimizer since we can load the whole data to train
+        #optimizer = optim.LBFGS(model.parameters(), lr=lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        self.recorded_steps = []
+        self.train_losses = []
+        self.test_losses = []
+        self.step_size = 25
+    
+    def calculate_error(self):
+        self.optimizer.zero_grad()
+        out = self.model(self.x_interp_train, self.y_prev_interp_train)
+        loss = self.criterion(out, self.target_train)
+        if self.iteration % self.step_size == 0:
             print('loss:', loss.item())
-            recorded_steps.append(i)
-            train_losses.append(loss.item())
+            self.recorded_steps.append(self.iteration)
+            self.train_losses.append(loss.item())
         loss.backward()
         return loss
-    def predict():
+
+    def predict(self):
         # begin to predict, no need to track gradient here
         with torch.no_grad():
-            pred = model(test_x_interp, test_y_prev_interp, test_x_extrap)
-            loss = criterion(pred[:, :-future], test_target)
+            pred = self.model(self.x_interp_test, self.y_prev_interp_test, self.x_extrap)
+            loss = self.criterion(pred[:, :-self.future], self.target_test)
             y = pred.detach().numpy()
             return y, loss
-
-    #begin to train
-    for i in range(1, steps + 1):
-        if i % step_size == 0:
-            print('STEP: ', i)
-        optimizer.step(calculate_error)
-        y, loss = predict()
-        # outputs
-        if i % step_size == 0:
-            print('test loss:', loss.item())
-            test_losses.append(loss.item())
-        if i % (4 * step_size) == 0:
-            draw_prediction(i, y, x_interp.size(1), future)
-    draw_convergence(train_losses, test_losses, recorded_steps, depthH, breadth, lr, steps)
-
+    
+    def converge(self):
+        #begin to train
+        for self.iteration in range(1, self.steps + 1):
+            if self.iteration % self.step_size == 0:
+                print('STEP: ', self.iteration)
+            self.optimizer.step(self.calculate_error)
+            y, loss = self.predict()
+            # outputs
+            if self.iteration % self.step_size == 0:
+                print('test loss:', loss.item())
+                self.test_losses.append(loss.item())
+            if self.iteration % (4 * self.step_size) == 0:
+                draw_prediction(self.iteration, y, self.x_interp_train.size(1), self.future)
+        draw_convergence(self.train_losses, self.test_losses, self.recorded_steps, self.depthH, self.breadth, self.lr, self.steps)
 
 depthH = 1
 breadth = 40
@@ -169,9 +144,12 @@ if __name__ == '__main__':
         print('Generating data...')
         #opt.shift = 4
         coefficients = [0, 0, 1]
-        generate_polynomial(opt, coefficients)
-    data = torch.load('traindata.pt')
-    converge(data, opt.depth, opt.breadth, opt.lr, opt.steps, opt.future)
+        data = generate_polynomial(opt, coefficients)
+        torch.save(data.astype('float64'), open('traindata.pt', 'wb'))
+    else:
+        data = torch.load('traindata.pt')
+    ufie = UFIE(data, opt.depth, opt.breadth, opt.lr, opt.steps, opt.future)
+    ufie.converge()
 
 # Tasks
 # - organize code better (move plotting functions into a different module, & use modules/classes to organize whatever else)
