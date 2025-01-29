@@ -23,9 +23,8 @@ def generate_polynomial(opt, coefficients):
     for k, c in enumerate(coefficients):
         term_scale = opt.term_scale * np.random.rand(opt.number).reshape(opt.number, 1)
         data[:, :, 1] += (opt.total_scale + equation_scale + term_scale) * c * np.pow(x, k)
-    # Display & save
     #print(data[:10])
-    torch.save(data.astype('float64'), open('traindata.pt', 'wb'))
+    return data
 
 class Net(nn.Module):
     def __init__(self, depthH=1, breadth=40):
@@ -86,18 +85,17 @@ def converge(data, depthH=1, breadth=40, lr=0.01, steps=1000, future=100):
     np.random.seed(0)
     torch.manual_seed(0)
     # load data and make training set
-    x_interp = torch.from_numpy(data[3:, 1:, 0])
-    y_prev_interp = torch.from_numpy(data[3:, :-1, 1])
-    target = torch.from_numpy(data[3:, 1:, 1])
-    test_x_interp = torch.from_numpy(data[:3, 1:, 0])
-    test_y_prev_interp = torch.from_numpy(data[:3, :-1, 1])
+    x_interp_train = torch.from_numpy(data[3:, 1:, 0])
+    x_interp_test = torch.from_numpy(data[:3, 1:, 0])
+    y_prev_interp_train = torch.from_numpy(data[3:, :-1, 1])
+    y_prev_interp_test = torch.from_numpy(data[:3, :-1, 1])
+    target_train = torch.from_numpy(data[3:, 1:, 1])
+    target_test = torch.from_numpy(data[:3, 1:, 1])
     step = data[0, -1, 0] - data[0, -2, 0]
     start = data[0, -1, 0] + step
     stop = start + future * step
-    shift = data[:, -1, 0].reshape(data.shape[0], 1) + step - start
-    x_extrap_np = np.array(np.arange(start, stop, step)) + shift
-    test_x_extrap = torch.from_numpy(x_extrap_np[:3, :])
-    test_target = torch.from_numpy(data[:3, 1:, 1])
+    shift = data[:3, -1, 0].reshape(3, 1) + step - start
+    x_extrap = torch.from_numpy(np.arange(start, stop, step) + shift)
     # build the model
     model = Net(depthH, breadth)
     model.double()
@@ -111,8 +109,8 @@ def converge(data, depthH=1, breadth=40, lr=0.01, steps=1000, future=100):
     step_size = 25
     def calculate_error():
         optimizer.zero_grad()
-        out = model(x_interp, y_prev_interp)
-        loss = criterion(out, target)
+        out = model(x_interp_train, y_prev_interp_train)
+        loss = criterion(out, target_train)
         if i % step_size == 0:
             print('loss:', loss.item())
             recorded_steps.append(i)
@@ -122,8 +120,8 @@ def converge(data, depthH=1, breadth=40, lr=0.01, steps=1000, future=100):
     def predict():
         # begin to predict, no need to track gradient here
         with torch.no_grad():
-            pred = model(test_x_interp, test_y_prev_interp, test_x_extrap)
-            loss = criterion(pred[:, :-future], test_target)
+            pred = model(x_interp_test, y_prev_interp_test, x_extrap)
+            loss = criterion(pred[:, :-future], target_test)
             y = pred.detach().numpy()
             return y, loss
 
@@ -138,7 +136,7 @@ def converge(data, depthH=1, breadth=40, lr=0.01, steps=1000, future=100):
             print('test loss:', loss.item())
             test_losses.append(loss.item())
         if i % (4 * step_size) == 0:
-            draw_prediction(i, y, x_interp.size(1), future)
+            draw_prediction(i, y, x_interp_train.size(1), future)
     draw_convergence(train_losses, test_losses, recorded_steps, depthH, breadth, lr, steps)
 
 
@@ -169,8 +167,10 @@ if __name__ == '__main__':
         print('Generating data...')
         #opt.shift = 4
         coefficients = [0, 0, 1]
-        generate_polynomial(opt, coefficients)
-    data = torch.load('traindata.pt')
+        data = generate_polynomial(opt, coefficients)
+        torch.save(data.astype('float64'), open('traindata.pt', 'wb'))
+    else:
+        data = torch.load('traindata.pt')
     converge(data, opt.depth, opt.breadth, opt.lr, opt.steps, opt.future)
 
 # Tasks
