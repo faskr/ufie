@@ -6,7 +6,7 @@
         "start": 0,
         "separation": 1,
         "shift": 4,
-        "total_scale": 1,
+        "base_scale": 1,
         "equation_scale": 0,
         "term_scale": 0
     },
