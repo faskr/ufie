@@ -89,7 +89,7 @@ def converge(data, depthH=1, breadth=40, lr=0.01, steps=1000, future=100):
     x_interp = torch.from_numpy(data[3:, 1:, 0])
     y_prev_interp = torch.from_numpy(data[3:, :-1, 1])
     target = torch.from_numpy(data[3:, 1:, 1])
-    test_x_interp = torch.from_numpy(data[:3, :-1, 0])
+    test_x_interp = torch.from_numpy(data[:3, 1:, 0])
     test_y_prev_interp = torch.from_numpy(data[:3, :-1, 1])
     step = data[0, -1, 0] - data[0, -2, 0]
     start = data[0, -1, 0] + step
