@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 #import torch.nn.functional as F
 #import torch.optim as optim
-from os import path
+import os
 import numpy as np
 from plots import *
 
@@ -54,7 +54,7 @@ class UFIE:
         self.steps = opt.steps
         self.prediction_size = opt.prediction_size
         # Get the data
-        if opt.regenerate_data or not path.isfile('traindata.pt'):
+        if opt.regenerate_data or not os.path.isfile('traindata.pt'):
             print('Generating data...')
             data = self.generate_polynomial(opt, coefficients)
             torch.save(data.astype('float64'), open('traindata.pt', 'wb'))
@@ -119,7 +119,9 @@ class UFIE:
             return y, loss
     
     def converge(self):
-        plot_pred = LivePrediction()
+        plot_pred = LivePlot()
+        # TODO: make convergence plot live
+        #plot_conv = LivePlot()
         #begin to train
         for self.iteration in range(1, self.steps + 1):
             if self.iteration % self.step_size == 0:
@@ -131,8 +133,12 @@ class UFIE:
                 print('test loss:', loss.item())
                 self.test_losses.append(loss.item())
             if self.iteration % (4 * self.step_size) == 0:
-                plot_pred.draw_prediction(self.iteration, y, self.x_interp_train.size(1), self.prediction_size, self.test_size)
-        draw_convergence(self.train_losses, self.test_losses, self.recorded_steps, self.depth, self.breadth, self.lr, self.steps)
+                title = 'Predict future values for time sequences\n(Dashlines are predicted values) - Iteration %d' % self.iteration
+                path = 'results/prediction_%d.pdf' % self.iteration
+                plot_pred.draw_prediction(y, self.x_interp_train.size(1), self.prediction_size, self.test_size, title, path)
+        title = 'Convergence (train=%.4f, test=%.4f)' % (self.train_losses[-1], self.test_losses[-1])
+        path = 'results/convergence_%.4f_%dx%d_%.2flr_%ds.pdf' % (self.test_losses[-1], self.depth, self.breadth, self.lr, self.steps)
+        draw_convergence(self.train_losses, self.test_losses, self.recorded_steps, title, path)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
