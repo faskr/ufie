@@ -1,8 +1,8 @@
 {
     "data": {
-        "coefficients": [-20, 2, -0.2, 0.02],
+        "coefficients": [-20, 2, -0.4, 0.02],
         "datasets": 100,
-        "samples": 100,
+        "samples": 200,
         "start": 0,
         "separation": 1,
         "shift": 5,

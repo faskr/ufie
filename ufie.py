@@ -7,8 +7,7 @@ from function_model import *
 from plots import *
 
 class UFIE:
-    def __init__(self, coefficients, data, configs):
-        self.coefficients = coefficients
+    def __init__(self, data, configs):
         self.mode = configs['mode']
         self.depth = configs['depth']
         self.breadth = configs['breadth']
@@ -16,14 +15,15 @@ class UFIE:
         self.test_size = configs['test_size']
         self.steps = configs['steps']
         self.extrapolations = configs['extrapolations']
-        self.interpolations = data.shape[1] - 1
+        self.interpolations = data.shape[1] - self.extrapolations - 1
         # load data and make training set
-        self.x_interp_train = torch.from_numpy(data[self.test_size:, 1:, 0])
-        self.x_interp_test = torch.from_numpy(data[:self.test_size, 1:, 0])
-        self.y_prev_interp_train = torch.from_numpy(data[self.test_size:, :-1, 1])
-        self.y_prev_interp_test = torch.from_numpy(data[:self.test_size, :-1, 1])
-        self.target_train = torch.from_numpy(data[self.test_size:, 1:, 1])
-        self.target_test = torch.from_numpy(data[:self.test_size, 1:, 1])
+        self.x_interp_train = torch.from_numpy(data[self.test_size:, 1:self.extrapolations, 0])
+        self.x_interp_test = torch.from_numpy(data[:self.test_size, 1:self.extrapolations, 0])
+        self.y_prev_interp_train = torch.from_numpy(data[self.test_size:, :self.extrapolations-1, 1])
+        self.y_prev_interp_test = torch.from_numpy(data[:self.test_size, :self.extrapolations-1, 1])
+        self.y_target_train = torch.from_numpy(data[self.test_size:, 1:self.extrapolations, 1])
+        self.y_target_test = torch.from_numpy(data[:self.test_size, 1:self.extrapolations, 1])
+        self.y_total_test = torch.from_numpy(data[:self.test_size, 1:, 1])
         step = data[0, -1, 0] - data[0, -2, 0]
         start = data[0, -1, 0] + step
         stop = start + self.extrapolations * step
@@ -44,7 +44,7 @@ class UFIE:
     def calculate_error(self):
         self.optimizer.zero_grad()
         out = self.model(self.x_interp_train, self.y_prev_interp_train)
-        loss = self.criterion(out, self.target_train)
+        loss = self.criterion(out, self.y_target_train)
         if self.iteration % self.step_size == 0:
             print('train loss:', loss.item())
             self.train_losses.append(loss.item())
@@ -55,7 +55,7 @@ class UFIE:
         # begin to predict, no need to track gradient here
         with torch.no_grad():
             pred = self.model(self.x_interp_test, self.y_prev_interp_test, self.x_extrap)
-            loss = self.criterion(pred[:, :-self.extrapolations], self.target_test)
+            loss = self.criterion(pred[:, :-self.extrapolations], self.y_target_test)
             if self.iteration % self.step_size == 0:
                 print('test loss:', loss.item())
                 self.test_losses.append(loss.item())
@@ -76,5 +76,5 @@ class UFIE:
             if self.iteration % self.step_size == 0:
                 exe_times.append(time.time() - start_time)
                 if self.iteration % (4 * self.step_size) == 0:
-                    live_plots.draw_plots(self.iteration, self.coefficients, y, self.interpolations, self.extrapolations, self.descent_steps, exe_times, self.train_losses, self.test_losses)
+                    live_plots.draw_plots(self.iteration, self.y_total_test, y, self.interpolations, self.extrapolations, self.descent_steps, exe_times, self.train_losses, self.test_losses)
         live_plots.save('results/%.4f_%dx%d_%.2flr_%dsteps.pdf' % (self.test_losses[-1], self.depth, self.breadth, self.lr, self.steps))

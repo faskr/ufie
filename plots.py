@@ -7,20 +7,17 @@ class LivePlots:
         self.predictions = predictions
         self.figure_created = False
 
-    def create_figure(self, coefficients, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses):
+    def create_figure(self, y_truth, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses):
         # figure
         plt.ion()
         gs = gridspec.GridSpec(2, 2)
-        self.fig = plt.figure(figsize=(12, 8))
+        self.fig = plt.figure(figsize=(12, 9))
+        x = np.arange(1, known_points + predicted_points + 1)
         # truth vs. fit plot
         self.ax1 = self.fig.add_subplot(gs[0, 0])
         self.ax1.set_xlabel('x')
         self.ax1.set_ylabel('y')
-        x = np.arange(1, known_points + predicted_points + 1)
-        y_true = np.zeros(x.shape)
-        for k, c in enumerate(coefficients):
-            y_true += c * np.pow(x, k)
-        self.ax1.plot(x, y_true)
+        self.ax1.plot(x, y_truth[0, :])
         self.generalized_plots = [self.ax1.plot(x[:known_points], y[0][:known_points]) +
                                   self.ax1.plot(x[known_points:], y[0][known_points:], ':')]
         self.generalized_plots[0][1].set_color(self.generalized_plots[0][0].get_color())
@@ -30,6 +27,7 @@ class LivePlots:
         self.ax2.set_xlabel('x')
         self.ax2.set_ylabel('y')
         for i in range(1, self.predictions):
+            self.ax2.plot(x, y_truth[i, :])
             self.generalized_plots += [self.ax2.plot(np.arange(1, known_points + 1), y[i][:known_points]) +
                                        self.ax2.plot(np.arange(known_points + 1, known_points + predicted_points + 1), y[i][known_points:], ':')]
             self.generalized_plots[-1][1].set_color(self.generalized_plots[-1][0].get_color())
@@ -78,13 +76,13 @@ class LivePlots:
         self.ax4.relim()
         self.ax4.autoscale_view()
 
-    def draw_plots(self, iteration, coefficients, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses):
+    def draw_plots(self, iteration, y_truth, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses):
         if not self.figure_created:
-            self.create_figure(coefficients, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses)
+            self.create_figure(y_truth, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses)
         else:
             self.update_figure(y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses)
-        self.ax1.set_title('Truth vs. fit & prediction - iteration %d' % iteration)
-        self.ax2.set_title('Generalized fit & prediction - iteration %d' % iteration)
+        self.ax1.set_title('True specified function vs. fit & predictionn\nIteration %d' % iteration)
+        self.ax2.set_title('True random functions vs. fit & prediction\nIteration %d' % iteration)
         self.ax3.set_title('Convergence (train=%.4f, test=%.4f)' % (train_losses[-1], test_losses[-1]))
         self.ax4.set_title('Convergence (train=%.4f, test=%.4f)' % (train_losses[-1], test_losses[-1]))
         self.fig.canvas.draw()
