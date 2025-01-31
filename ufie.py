@@ -181,9 +181,9 @@ if __name__ == '__main__':
 # Tasks
 # - use inputs.json instead of command line parameters
 # - test different polynomials with different configurations
-# - incorporate non-polynomial functions (trigonometric, exponential, logarithmic, etc.)
 # - see if network using only x_k or only y_(k-1) can be improved
 # - implement desired plots
+# - incorporate non-polynomial functions (trigonometric, exponential, logarithmic, etc.)
 
 # Universal Function Interpolator and Extrapolator
 # Receives:
