@@ -1,0 +1,22 @@
+{
+    "data": {
+        "coefficients": "list; ci where y = c0 + c1*x + c2*x^2 + ...",
+        "datasets": "int; number of datasets",
+        "samples": "int; number of samples per dataset",
+        "start": "float; first sample",
+        "separation": "float; separation between one sample and the next",
+        "shift": "int; limit of random shift",
+        "base_scale": "float; component of scale that applies to all equations",
+        "equation_scale": "float; limit of random component of scale that applies to the full equation",
+        "term_scale": "float; limit of random component of scale that applies to one term in the equation"
+    },
+    "model": {
+        "mode": "str; whether to use x, y, or both x and y for input to the network",
+        "depth": "int; nn depth (hidden layers)",
+        "breadth": "int; nn breadth",
+        "lr": "float; learning rate",
+        "test_size": "int; how many of the datasets are test sets",
+        "prediction_size": "int; number of future inputs to predict the outputs for",
+        "steps": "int; steps to run"
+    }
+}
