@@ -11,9 +11,11 @@
         "term_scale": 0
     },
     "model": {
+        "mode": "x",
         "depth": 1,
         "breadth": 40,
         "lr": 0.01,
+        "test_size": 5,
         "steps": 1000
     },
     "prediction_length": 100

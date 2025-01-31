@@ -7,15 +7,19 @@ import torch.nn as nn
 import os
 import numpy as np
 from plots import *
+import time
 
 np.random.seed(0)
 torch.manual_seed(0)
 
 class FunctionModel(nn.Module):
-    def __init__(self, depthH=1, breadth=40):
+    def __init__(self, depthH=1, breadth=40, mode='xy'):
         super(FunctionModel, self).__init__()
+        if mode not in ['x', 'y', 'xy']:
+            ValueError("Mode needs to be 'x', 'y', or 'xy'")
         self.depthH = depthH
-        self.linearI = nn.Linear(2, breadth)
+        self.mode = mode
+        self.linearI = nn.Linear(2, breadth) if mode == 'xy' else nn.Linear(1, breadth)
         self.linearH = nn.Linear(breadth, breadth)
         self.linearO = nn.Linear(breadth, 1)
         self.relu = nn.ReLU()
@@ -29,11 +33,21 @@ class FunctionModel(nn.Module):
 
     def forward(self, x_interp, y_prev_interp, x_extrap=torch.empty((1, 0))):
         assert x_interp.size(1) == y_prev_interp.size(1)
-        input = torch.cat([x_interp[:, :, None], y_prev_interp[:, :, None]], dim=2)
+        if self.mode == 'x':
+            input = x_interp[:, :, None]
+        elif self.mode == 'y':
+            input = y_prev_interp[:, :, None]
+        elif self.mode == 'xy':
+            input = torch.cat([x_interp[:, :, None], y_prev_interp[:, :, None]], dim=2)
         output_tensor = self.network(input)[:, :, 0]
         output_list = list(output_tensor.split(1, dim=1))
         for i in range(x_extrap.size(1)): # if we should predict the future
-            input = torch.cat([x_extrap[:, i, None], output_list[-1]], dim=1)
+            if self.mode == 'x':
+                input = x_extrap[:, i, None]
+            elif self.mode == 'y':
+                input = output_list[-1]
+            elif self.mode == 'xy':
+                input = torch.cat([x_extrap[:, i, None], output_list[-1]], dim=1)
             output_list += [self.network(input)]
         output_tensor = torch.cat(output_list, dim=1)
         return output_tensor
@@ -48,20 +62,21 @@ class UFIE:
         self.base_scale = opt.base_scale
         self.equation_scale = opt.equation_scale
         self.term_scale = opt.term_scale
+        self.mode = opt.mode
         self.depth = opt.depth
         self.breadth = opt.breadth
         self.lr = opt.lr
+        self.test_size = opt.test_size
         self.steps = opt.steps
         self.prediction_size = opt.prediction_size
         # Get the data
         if opt.regenerate_data or not os.path.isfile('traindata.pt'):
             print('Generating data...')
-            data = self.generate_polynomial(opt, coefficients)
+            data = self.generate_polynomial(coefficients)
             torch.save(data.astype('float64'), open('traindata.pt', 'wb'))
         else:
             data = torch.load('traindata.pt')
         # load data and make training set
-        self.test_size = 3
         self.x_interp_train = torch.from_numpy(data[self.test_size:, 1:, 0])
         self.x_interp_test = torch.from_numpy(data[:self.test_size, 1:, 0])
         self.y_prev_interp_train = torch.from_numpy(data[self.test_size:, :-1, 1])
@@ -74,7 +89,7 @@ class UFIE:
         shift = data[:self.test_size, -1, 0].reshape(self.test_size, 1) + step - start
         self.x_extrap = torch.from_numpy(np.arange(start, stop, step) + shift)
         # build the model
-        self.model = FunctionModel(opt.depth, opt.breadth)
+        self.model = FunctionModel(opt.depth, opt.breadth, mode=self.mode)
         self.model.double()
         self.criterion = nn.MSELoss()
         # use LBFGS as optimizer since we can load the whole data to train
@@ -119,9 +134,9 @@ class UFIE:
             return y, loss
     
     def converge(self):
-        plot_pred = LivePlot()
-        # TODO: make convergence plot live
-        #plot_conv = LivePlot()
+        live_plots = LivePlots()
+        start_time = time.time()
+        exe_times = []
         #begin to train
         for self.iteration in range(1, self.steps + 1):
             if self.iteration % self.step_size == 0:
@@ -132,13 +147,10 @@ class UFIE:
             if self.iteration % self.step_size == 0:
                 print('test loss:', loss.item())
                 self.test_losses.append(loss.item())
+                exe_times.append(time.time() - start_time)
             if self.iteration % (4 * self.step_size) == 0:
-                title = 'Predict future values for time sequences\n(Dashlines are predicted values) - Iteration %d' % self.iteration
-                path = 'results/prediction_%d.pdf' % self.iteration
-                plot_pred.draw_prediction(y, self.x_interp_train.size(1), self.prediction_size, self.test_size, title, path)
-        title = 'Convergence (train=%.4f, test=%.4f)' % (self.train_losses[-1], self.test_losses[-1])
-        path = 'results/convergence_%.4f_%dx%d_%.2flr_%ds.pdf' % (self.test_losses[-1], self.depth, self.breadth, self.lr, self.steps)
-        draw_convergence(self.train_losses, self.test_losses, self.recorded_steps, title, path)
+                live_plots.draw_plots(y, self.iteration, self.x_interp_train.size(1), self.prediction_size, self.test_size, self.recorded_steps, exe_times, self.train_losses, self.test_losses)
+        live_plots.save('results/%.4f_%dx%d_%.2flr_%ds.pdf' % (self.test_losses[-1], self.depth, self.breadth, self.lr, self.steps))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -151,24 +163,28 @@ if __name__ == '__main__':
     parser.add_argument('--base_scale', type=float, default=1, help='component of scale that applies to all equations')
     parser.add_argument('--equation_scale', type=float, default=0, help='limit of random component of scale that applies to the full equation')
     parser.add_argument('--term_scale', type=float, default=0, help='limit of random component of scale that applies to one term in the equation')
+    parser.add_argument('--mode', type=str, default='xy', help='whether to use x, y, or both x and y for input to the network')
     parser.add_argument('--depth', type=int, default=1, help='nn depth (hidden layers)')
     parser.add_argument('--breadth', type=int, default=40, help='nn breadth')
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
+    parser.add_argument('--test_size', type=int, default=5, help='how many of the datasets are test sets')
     parser.add_argument('--steps', type=int, default=1000, help='steps to run')
     parser.add_argument('--prediction_size', type=int, default=100, help='number of future inputs to predict the outputs for')
     opt = parser.parse_args()
     coefficients = [0, 0, 1]
+    #opt.shift = 10
+    #opt.equation_scale = 10
+    #opt.depth = 3
     ufie = UFIE(coefficients, opt)
     ufie.converge()
 
 # Tasks
-# - have more convenient plots (e.g. real-time updating)
-# - implement desired plots
 # - have option to change number or proportion of train vs. test data
 # - use inputs.json instead of command line parameters
 # - test different polynomials with different configurations
 # - incorporate non-polynomial functions (trigonometric, exponential, logarithmic, etc.)
 # - might possibly need to have an option to disable either x_k or y_(k-1) parameter for certain functions
+# - implement desired plots
 
 # Universal Function Interpolator and Extrapolator
 # Receives:

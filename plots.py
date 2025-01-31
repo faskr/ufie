@@ -1,23 +1,39 @@
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
-class LivePlot:
+class LivePlots:
     def __init__(self):
         self.figure_created = False
 
-    def draw_prediction(self, y, known_points, predictions, num_functions, title=None, path=None):
-        matplotlib.use('TkAgg')
+    def draw_plots(self, y, iteration, known_points, predictions, num_functions, steps, exe_times, train_losses, test_losses):
         if not self.figure_created:
             plt.ion()
-            self.fig, self.ax = plt.subplots(figsize=(16,8))
-            plt.xlabel('x')
-            plt.ylabel('y')
+            gs = gridspec.GridSpec(2, 2)
+            self.fig = plt.figure(figsize=(18, 9))
+            plt.get_current_fig_manager().window.state('zoomed')
+            self.ax1 = self.fig.add_subplot(gs[0, :])
+            self.ax1.set_xlabel('x')
+            self.ax1.set_ylabel('y')
             self.plots = []
             for i in range(num_functions):
-                self.plots += [self.ax.plot(np.arange(known_points), y[i][:known_points]) +
-                               self.ax.plot(np.arange(known_points, known_points + predictions), y[i][known_points:], ':')]
+                self.plots += [self.ax1.plot(np.arange(known_points), y[i][:known_points]) +
+                               self.ax1.plot(np.arange(known_points, known_points + predictions), y[i][known_points:], ':')]
                 self.plots[-1][1].set_color(self.plots[-1][0].get_color())
+            self.ax2 = self.fig.add_subplot(gs[1, 0])
+            self.ax2.set_xlabel('step')
+            self.ax2.set_ylabel('loss')
+            self.ax2.set_yscale('log')
+            self.train_plot_steps, = self.ax2.plot(steps, train_losses, 'b')
+            self.test_plot_steps, = self.ax2.plot(steps, test_losses, 'r')
+            self.ax2.legend(['Training', 'Testing'])
+            self.ax3 = self.fig.add_subplot(gs[1, 1])
+            self.ax3.set_xlabel('seconds')
+            self.ax3.set_ylabel('loss')
+            self.ax3.set_yscale('log')
+            self.train_plot_time, = self.ax3.plot(exe_times, train_losses, 'b')
+            self.test_plot_time, = self.ax3.plot(exe_times, test_losses, 'r')
+            self.ax3.legend(['Training', 'Testing'])
             self.figure_created = True
         else:
             for i in range(num_functions):
@@ -25,23 +41,25 @@ class LivePlot:
                 self.plots[i][0].set_ydata(y[i][:known_points])
                 self.plots[i][1].set_xdata(np.arange(known_points, known_points + predictions))
                 self.plots[i][1].set_ydata(y[i][known_points:])
-        if title:
-            plt.title(title)
-        self.ax.relim()
-        self.ax.autoscale_view()
+            self.train_plot_steps.set_xdata(steps)
+            self.train_plot_steps.set_ydata(train_losses)
+            self.test_plot_steps.set_xdata(steps)
+            self.test_plot_steps.set_ydata(test_losses)
+            self.train_plot_time.set_xdata(exe_times)
+            self.train_plot_time.set_ydata(train_losses)
+            self.test_plot_time.set_xdata(exe_times)
+            self.test_plot_time.set_ydata(test_losses)
+        self.ax1.set_title('Predict future values (shown as dashlines) - iteration %d' % iteration)
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+        self.ax2.set_title('Convergence (train=%.4f, test=%.4f)' % (train_losses[-1], test_losses[-1]))
+        self.ax2.relim()
+        self.ax2.autoscale_view()
+        self.ax3.set_title('Convergence (train=%.4f, test=%.4f)' % (train_losses[-1], test_losses[-1]))
+        self.ax3.relim()
+        self.ax3.autoscale_view()
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
-        if path:
-            plt.savefig(path)
-
-def draw_convergence(train_losses, test_losses, recorded_steps, title, path):
-    matplotlib.use('Agg')
-    plt.figure()
-    plt.title(title)
-    plt.xlabel('step')
-    plt.ylabel('loss')
-    plt.yscale('log')
-    plt.plot(recorded_steps, train_losses, 'b')
-    plt.plot(recorded_steps, test_losses, 'r')
-    plt.legend(['Training', 'Testing'])
-    plt.savefig(path)
+    
+    def save(self, path):
+        self.fig.savefig(path)
