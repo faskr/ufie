@@ -179,11 +179,10 @@ if __name__ == '__main__':
     ufie.converge()
 
 # Tasks
-# - have option to change number or proportion of train vs. test data
 # - use inputs.json instead of command line parameters
 # - test different polynomials with different configurations
 # - incorporate non-polynomial functions (trigonometric, exponential, logarithmic, etc.)
-# - might possibly need to have an option to disable either x_k or y_(k-1) parameter for certain functions
+# - see if network using only x_k or only y_(k-1) can be improved
 # - implement desired plots
 
 # Universal Function Interpolator and Extrapolator
