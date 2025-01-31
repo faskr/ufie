@@ -11,7 +11,7 @@
         "term_scale": 0
     },
     "model": {
-        "mode": "x",
+        "mode": "xy",
         "depth": 1,
         "breadth": 40,
         "lr": 0.01,

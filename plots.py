@@ -10,8 +10,7 @@ class LivePlots:
         # figure
         plt.ion()
         gs = gridspec.GridSpec(2, 2)
-        self.fig = plt.figure(figsize=(18, 9))
-        plt.get_current_fig_manager().window.state('zoomed')
+        self.fig = plt.figure(figsize=(12, 8))
         # prediction plot
         self.ax1 = self.fig.add_subplot(gs[0, :])
         self.ax1.set_xlabel('x')
@@ -74,6 +73,6 @@ class LivePlots:
         self.ax3.set_title('Convergence (train=%.4f, test=%.4f)' % (train_losses[-1], test_losses[-1]))
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
-    
+
     def save(self, path):
         self.fig.savefig(path)
