@@ -17,10 +17,10 @@ class UFIE:
         self.extrapolations = configs['extrapolations']
         self.interpolations = data.shape[1] - self.extrapolations - 1
         # load data and make training set
-        self.x_interp_train = torch.from_numpy(data[self.test_size:, 1:self.interpolations+1, 0])
-        self.x_interp_test = torch.from_numpy(data[:self.test_size, 1:self.interpolations+1, 0])
-        self.y_prev_interp_train = torch.from_numpy(data[self.test_size:, :self.interpolations, 1])
-        self.y_prev_interp_test = torch.from_numpy(data[:self.test_size, :self.interpolations, 1])
+        self.x_interp_train = torch.from_numpy(data[self.test_size:, :self.interpolations, 0])
+        self.x_interp_test = torch.from_numpy(data[:self.test_size, :self.interpolations, 0])
+        self.y_interp_train = torch.from_numpy(data[self.test_size:, :self.interpolations, 1])
+        self.y_interp_test = torch.from_numpy(data[:self.test_size, :self.interpolations, 1])
         self.y_target_train = torch.from_numpy(data[self.test_size:, 1:self.interpolations+1, 1])
         self.y_target_test = torch.from_numpy(data[:self.test_size, 1:self.interpolations+1, 1])
         self.y_total_test = torch.from_numpy(data[:self.test_size, 1:, 1])
@@ -43,7 +43,7 @@ class UFIE:
 
     def calculate_error(self):
         self.optimizer.zero_grad()
-        out = self.model(self.x_interp_train, self.y_prev_interp_train)
+        out = self.model(self.x_interp_train, self.y_interp_train)
         loss = self.criterion(out, self.y_target_train)
         if self.iteration % self.step_size == 0:
             print('train loss:', loss.item())
@@ -54,7 +54,7 @@ class UFIE:
     def predict(self):
         # begin to predict, no need to track gradient here
         with torch.no_grad():
-            pred = self.model(self.x_interp_test, self.y_prev_interp_test, self.x_extrap)
+            pred = self.model(self.x_interp_test, self.y_interp_test, self.x_extrap)
             loss = self.criterion(pred[:, :-self.extrapolations], self.y_target_test)
             if self.iteration % self.step_size == 0:
                 print('test loss:', loss.item())
