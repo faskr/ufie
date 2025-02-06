@@ -16,7 +16,12 @@ if __name__ == '__main__':
     ufie = UFIE(data, configs['model'])
     ufie.converge()
 
-# Ideas
+# Priority Tasks
+# - Have interface that receives a single dataset to fit, optionally along with other datasets in the zone of extrapolation, used to offer another means of generalizing that zone
+# 	- Generalize the other datasets by sliding a range of prior y values as input through the extrapolation zone, and using that along with current x (or equivalent range of x's?) to predict subsequent y values
+# 	- This way, the model is trained in the interpolation zone using the fitted dataset, and in the extrapolation zone using the other datasets
+# - Consider using/allowing x_k-1, y_k-1 => y_k instead, or x_k, y_k => y_k+1
 # - Incorporate non-polynomial functions (trigonometric, exponential, logarithmic, etc.)
+# Stretch
 # - Customize placement of activation functions, as well as choice of optimization and/or loss function
 # - Put x_k and y_(k-1) on separate networks
