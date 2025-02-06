@@ -17,12 +17,12 @@ class UFIE:
         self.extrapolations = configs['extrapolations']
         self.interpolations = data.shape[1] - self.extrapolations - 1
         # load data and make training set
-        self.x_interp_train = torch.from_numpy(data[self.test_size:, 1:self.extrapolations, 0])
-        self.x_interp_test = torch.from_numpy(data[:self.test_size, 1:self.extrapolations, 0])
-        self.y_prev_interp_train = torch.from_numpy(data[self.test_size:, :self.extrapolations-1, 1])
-        self.y_prev_interp_test = torch.from_numpy(data[:self.test_size, :self.extrapolations-1, 1])
-        self.y_target_train = torch.from_numpy(data[self.test_size:, 1:self.extrapolations, 1])
-        self.y_target_test = torch.from_numpy(data[:self.test_size, 1:self.extrapolations, 1])
+        self.x_interp_train = torch.from_numpy(data[self.test_size:, 1:self.interpolations+1, 0])
+        self.x_interp_test = torch.from_numpy(data[:self.test_size, 1:self.interpolations+1, 0])
+        self.y_prev_interp_train = torch.from_numpy(data[self.test_size:, :self.interpolations, 1])
+        self.y_prev_interp_test = torch.from_numpy(data[:self.test_size, :self.interpolations, 1])
+        self.y_target_train = torch.from_numpy(data[self.test_size:, 1:self.interpolations+1, 1])
+        self.y_target_test = torch.from_numpy(data[:self.test_size, 1:self.interpolations+1, 1])
         self.y_total_test = torch.from_numpy(data[:self.test_size, 1:, 1])
         step = data[0, -1, 0] - data[0, -2, 0]
         start = data[0, -1, 0] + step
