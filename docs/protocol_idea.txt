@@ -1,0 +1,72 @@
+Principles:
+    Use an array when a function is commutative: addition or multiplication
+    Use a dictionary when a function is non-commutative: exponentiation, logarithm, trigonometric function
+
+[
+    1,
+    [
+        {
+            'func': 'exp',
+            'base': 2,
+            'val': {
+                'func': 'cos',
+                'val': 2
+            }
+        },
+        {
+            'func': 'sin',
+            'val': [
+                0,
+                1
+            ]
+        }
+    ],
+    {
+        'func': 'log',
+        'base': [
+            0,
+            4
+        ],
+        'val': 4
+    },
+    [
+        -3,
+        {
+            'func': 'log',
+            'base': 10,
+            'val': [
+                0,
+                0,
+                [
+                    3,
+                    {
+                        'func': 'exp',
+                        'base': 5,
+                        'val': [
+                            0,
+                            2
+                        ]
+                    }
+                ]
+            ]
+        }
+    ]
+]
+
+result: 1 + (2^cos(2) * sin(x) * x) + (log_<4*x>(4) * x^2) - (3 * log_10(3 * 5^(2 * x) * x^2) * x^3)
+
+
+State machine for parsing the data:
+
+number => coefficient
+[] => summation or multiplication
+{} => function
+
+summation -> multiplication
+  | ^  |        |    |
+  | |  v        v    |
+  | \  coefficient   /
+  |  \    ^         /
+  \   \   |        /
+   '-> function <-'
+          \_^
