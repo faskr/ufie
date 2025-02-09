@@ -7,30 +7,45 @@ from function_model import *
 from plots import *
 
 class UFIE:
-    def __init__(self, data, configs):
+    def __init__(self, data_s, data_g, configs):
         self.mode = configs['mode']
+        self.model_y_inputs = configs['model_y_inputs']
         self.depth = configs['depth']
         self.breadth = configs['breadth']
         self.lr = configs['lr']
         self.test_size = configs['test_size']
         self.steps = configs['steps']
-        self.extrapolations = configs['extrapolations']
-        self.interpolations = data.shape[1] - self.extrapolations - 1
+        self.data_boundary = data_s.shape[0]
+        self.interpolations = data_s.shape[0] - self.model_y_inputs - 1
+        self.extrapolations = data_g.shape[1] - self.data_boundary
+        #self.extrapolations = configs['extrapolations']
+        #self.interpolations = data_g.shape[1] - self.extrapolations - 1
         # load data and make training set
-        self.x_interp_train = torch.from_numpy(data[self.test_size:, 1:self.interpolations+1, 0])
-        self.x_interp_test = torch.from_numpy(data[:self.test_size, 1:self.interpolations+1, 0])
-        self.y_prev_interp_train = torch.from_numpy(data[self.test_size:, :self.interpolations, 1])
-        self.y_prev_interp_test = torch.from_numpy(data[:self.test_size, :self.interpolations, 1])
-        self.y_target_train = torch.from_numpy(data[self.test_size:, 1:self.interpolations+1, 1])
-        self.y_target_test = torch.from_numpy(data[:self.test_size, 1:self.interpolations+1, 1])
-        self.y_total_test = torch.from_numpy(data[:self.test_size, 1:, 1])
-        step = data[0, -1, 0] - data[0, -2, 0]
-        start = data[0, -1, 0] + step
+        self.x_interp_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs+1:self.data_boundary, 0])
+        self.x_interp_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs+1:self.data_boundary, 0])
+        y_starts = range(self.interpolations)
+        y_prev_interp_train = []
+        y_prev_interp_test = []
+        for start in y_starts:
+            y_prev_interp_train += [data_s[start:(start + self.model_y_inputs), 1]]
+            y_prev_interp_test += [data_s[start:(start + self.model_y_inputs), 1]]
+        # TODO: change loss calculation to include extrapolated points
+        # TODO: simplify below
+        # datasets, samples, inputs
+        self.y_prev_interp_train = torch.from_numpy(np.repeat(np.vstack(y_prev_interp_train)[np.newaxis, :, :], self.x_interp_train.size(0), axis=0))
+        self.y_prev_interp_test = torch.from_numpy(np.repeat(np.vstack(y_prev_interp_test)[np.newaxis, :, :], self.x_interp_test.size(0), axis=0))
+        #self.y_prev_interp_train = torch.from_numpy(data_g[self.test_size:, :self.interpolations, 1])
+        #self.y_prev_interp_test = torch.from_numpy(data_g[:self.test_size, :self.interpolations, 1])
+        self.y_target_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs+1:self.data_boundary, 1])
+        self.y_target_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs+1:self.data_boundary, 1])
+        self.y_total_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs+1:, 1])
+        step = data_g[0, -1, 0] - data_g[0, -2, 0]
+        start = data_g[0, -1, 0] + step
         stop = start + self.extrapolations * step
-        shift = data[:self.test_size, -1, 0].reshape(self.test_size, 1) + step - start
+        shift = data_g[:self.test_size, -1, 0].reshape(self.test_size, 1) + step - start
         self.x_extrap = torch.from_numpy(np.arange(start, stop, step) + shift)
         # build the model
-        self.model = FunctionModel(self.depth, self.breadth, mode=self.mode)
+        self.model = FunctionModel(self.depth, self.breadth, mode=self.mode, y_length=self.model_y_inputs)
         self.model.double()
         self.criterion = nn.MSELoss()
         # use LBFGS as optimizer since we can load the whole data to train

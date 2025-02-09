@@ -7,22 +7,16 @@ class FunctionModel(nn.Module):
         match mode:
             case 'x':
                 self.make_input = self.make_input_x
-                self.y_length = 0
-                inputs = 1
+                inputs = x_length
             case 'y':
                 self.make_input = self.make_input_y
-                self.y_length = 1
-                inputs = 1
+                inputs = y_length
             case 'xy':
                 self.make_input = self.make_input_xy
-                self.y_length = 1
-                inputs = 2
-            case 'xyy':
-                self.make_input = self.make_input_xy
-                self.y_length = y_length
                 inputs = x_length + y_length
             case _:
                 ValueError("Mode needs to be 'x', 'y', or 'xy'")
+        self.y_length = y_length
         self.depthH = depthH
         self.linearI = nn.Linear(inputs, breadth)
         self.linearH = nn.Linear(breadth, breadth)
@@ -54,6 +48,7 @@ class FunctionModel(nn.Module):
         output_tensor = self.network(x_interp[:, :, None], y_prev_interp)[:, :, 0]
         #output_list = list(output_tensor.split(1, dim=1))
         # Extrapolate if there are extrapolation inputs
+        # TODO: use general data for extrapolation
         for i in range(x_extrap.size(1)):
             output_tensor = torch.cat([output_tensor, self.network(x_extrap[:, i, None], output_tensor[:, -self.y_length:])], dim=1)
         #output_tensor = torch.cat(output_list, dim=1)

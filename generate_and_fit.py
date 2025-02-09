@@ -12,8 +12,8 @@ if __name__ == '__main__':
     with open(sys.argv[1], 'r') as input_file:
         configs = json.load(input_file)
 
-    data = generate_polynomials_old(configs['data'])
-    ufie = UFIE(data, configs['model'])
+    data_s, data_g = generate_polynomials(configs['data'])
+    ufie = UFIE(data_s, data_g, configs['model'])
     ufie.converge()
 
 # Priority Tasks

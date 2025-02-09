@@ -24,14 +24,15 @@ def generate_inputs(configs):
     stop_interp = configs['start'] + configs['interpolations'] * configs['separation']
     specific = np.array(range(configs['start'], stop_interp, configs['separation']))
     # Make the first dataset a base unshifted set, and make the rest be randomly shifted sets
-    stop_extrap = specific[-1] + configs['extrapolations'] * configs['separation']
-    shift = np.concat([np.array([0]), (np.random.randint(-configs['shift'], configs['shift'] + 1, configs['datasets'] - 1))])
-    general = np.array(range(specific[-1], stop_extrap, configs['separation'])) + shift.reshape(configs['datasets'], 1)
+    start_extrap = configs['start']
+    stop_extrap = start_extrap + (configs['interpolations'] + configs['extrapolations']) * configs['separation']
+    shift_extrap = np.concat([np.array([0]), (np.random.randint(-configs['shift'], configs['shift'] + 1, configs['datasets'] - 1))])
+    general = np.array(range(start_extrap, stop_extrap, configs['separation'])) + shift_extrap.reshape(configs['datasets'], 1)
     return specific, general
 
 def generate_polynomials(configs, save_file=True):
     x_s, x_g = generate_inputs(configs)
-    data_s = np.hstack([x_s, np.zeros(x_s.shape)])
+    data_s = np.vstack([x_s, np.zeros(x_s.shape)]).T
     data_g = np.dstack([x_g, np.zeros(x_g.shape)])
     # Make the first dataset a base unscaled set, and make the rest be randomly scaled sets
     equation_scale = np.concat([np.array([0]), (configs['equation_scale'] * np.random.rand(configs['datasets'] - 1))])
