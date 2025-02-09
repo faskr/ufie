@@ -20,22 +20,23 @@ class UFIE:
         self.extrapolations = data_g.shape[1] - self.data_boundary
         #self.extrapolations = configs['extrapolations']
         #self.interpolations = data_g.shape[1] - self.extrapolations - 1
+        # TODO: instead of separate interpolation and extrapolation data, have e.g. x_train and y_prev_train, and the latter will be the tiled data_s for 0:interpolations, and data_g for interpolations:end
         # load data and make training set
         self.x_interp_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs+1:self.data_boundary, 0])
         self.x_interp_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs+1:self.data_boundary, 0])
         y_starts = range(self.interpolations)
-        y_prev_interp_train = []
-        y_prev_interp_test = []
+        y_prev_interp_train = np.zeros((self.x_interp_train.size(0), self.interpolations, self.model_y_inputs))
+        y_prev_interp_test = np.zeros((self.x_interp_test.size(0), self.interpolations, self.model_y_inputs))
         for start in y_starts:
-            y_prev_interp_train += [data_s[start:(start + self.model_y_inputs), 1]]
-            y_prev_interp_test += [data_s[start:(start + self.model_y_inputs), 1]]
-        # TODO: change loss calculation to include extrapolated points
-        # TODO: simplify below
+            dataset = data_s[start:(start + self.model_y_inputs), 1]
+            y_prev_interp_train[:, start, :] = np.tile(dataset, (y_prev_interp_train.shape[0], 1))
+            y_prev_interp_test[:, start, :] = np.tile(dataset, (y_prev_interp_test.shape[0], 1))
         # datasets, samples, inputs
-        self.y_prev_interp_train = torch.from_numpy(np.repeat(np.vstack(y_prev_interp_train)[np.newaxis, :, :], self.x_interp_train.size(0), axis=0))
-        self.y_prev_interp_test = torch.from_numpy(np.repeat(np.vstack(y_prev_interp_test)[np.newaxis, :, :], self.x_interp_test.size(0), axis=0))
+        self.y_prev_interp_train = torch.from_numpy(y_prev_interp_train)
+        self.y_prev_interp_test = torch.from_numpy(y_prev_interp_test)
         #self.y_prev_interp_train = torch.from_numpy(data_g[self.test_size:, :self.interpolations, 1])
         #self.y_prev_interp_test = torch.from_numpy(data_g[:self.test_size, :self.interpolations, 1])
+        # TODO: the targets will be tiled data_s for 0:interpolations, and data_g for interpolations:end; testing data will be tiled data_s for 0:interpolations (same values as training), and data_g for interpolations:end
         self.y_target_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs+1:self.data_boundary, 1])
         self.y_target_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs+1:self.data_boundary, 1])
         self.y_total_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs+1:, 1])
@@ -86,6 +87,7 @@ class UFIE:
                 print('STEP:', self.iteration)
                 self.descent_steps.append(self.iteration)
             self.optimizer.step(self.calculate_error) # train
+            # TODO: can't this be in the if statement below?
             y = self.predict() # predict
             # outputs
             if self.iteration % self.step_size == 0:

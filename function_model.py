@@ -48,7 +48,7 @@ class FunctionModel(nn.Module):
         output_tensor = self.network(x_interp[:, :, None], y_prev_interp)[:, :, 0]
         #output_list = list(output_tensor.split(1, dim=1))
         # Extrapolate if there are extrapolation inputs
-        # TODO: use general data for extrapolation
+        # TODO: use general data for extrapolation; edit: actually, I think this loop will just be deleted and this function will simply be the above
         for i in range(x_extrap.size(1)):
             output_tensor = torch.cat([output_tensor, self.network(x_extrap[:, i, None], output_tensor[:, -self.y_length:])], dim=1)
         #output_tensor = torch.cat(output_list, dim=1)
