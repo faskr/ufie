@@ -16,14 +16,14 @@ class UFIE:
         self.test_size = configs['test_size']
         self.steps = configs['steps']
         self.data_boundary = data_s.shape[0]
-        self.interpolations = data_s.shape[0] - self.model_y_inputs - 1
+        self.interpolations = data_s.shape[0] - self.model_y_inputs
         self.extrapolations = data_g.shape[1] - self.data_boundary
         #self.extrapolations = configs['extrapolations']
         #self.interpolations = data_g.shape[1] - self.extrapolations - 1
         # TODO: instead of separate interpolation and extrapolation data, have e.g. x_train and y_prev_train, and the latter will be the tiled data_s for 0:interpolations, and data_g for interpolations:end
         # load data and make training set
-        self.x_interp_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs+1:self.data_boundary, 0])
-        self.x_interp_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs+1:self.data_boundary, 0])
+        self.x_interp_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs:self.data_boundary, 0])
+        self.x_interp_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:self.data_boundary, 0])
         y_starts = range(self.interpolations)
         y_prev_interp_train = np.zeros((self.x_interp_train.size(0), self.interpolations, self.model_y_inputs))
         y_prev_interp_test = np.zeros((self.x_interp_test.size(0), self.interpolations, self.model_y_inputs))
@@ -37,9 +37,9 @@ class UFIE:
         #self.y_prev_interp_train = torch.from_numpy(data_g[self.test_size:, :self.interpolations, 1])
         #self.y_prev_interp_test = torch.from_numpy(data_g[:self.test_size, :self.interpolations, 1])
         # TODO: the targets will be tiled data_s for 0:interpolations, and data_g for interpolations:end; testing data will be tiled data_s for 0:interpolations (same values as training), and data_g for interpolations:end
-        self.y_target_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs+1:self.data_boundary, 1])
-        self.y_target_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs+1:self.data_boundary, 1])
-        self.y_total_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs+1:, 1])
+        self.y_target_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs:self.data_boundary, 1])
+        self.y_target_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:self.data_boundary, 1])
+        self.y_total_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:, 1])
         step = data_g[0, -1, 0] - data_g[0, -2, 0]
         start = data_g[0, -1, 0] + step
         stop = start + self.extrapolations * step
