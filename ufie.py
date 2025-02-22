@@ -15,16 +15,37 @@ class UFIE:
         self.lr = configs['lr']
         self.test_size = configs['test_size']
         self.steps = configs['steps']
-        self.data_boundary = data_s.shape[0]
-        self.interpolations = data_s.shape[0] - self.model_y_inputs
-        self.extrapolations = data_g.shape[1] - self.data_boundary
+        self.sample_boundary = data_s.shape[0]
+        self.total_samples = data_g.shape[1]
+        self.interpolations = self.sample_boundary - self.model_y_inputs
+        self.extrapolations = self.total_samples - self.sample_boundary
         #self.extrapolations = configs['extrapolations']
         #self.interpolations = data_g.shape[1] - self.extrapolations - 1
         # TODO: instead of separate interpolation and extrapolation data, have e.g. x_train and y_prev_train, and the latter will be the tiled data_s for 0:interpolations, and data_g for interpolations:end
         # load data and make training set
-        self.x_interp_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs:self.data_boundary, 0])
-        self.x_interp_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:self.data_boundary, 0])
-        y_starts = range(self.interpolations)
+        tiled_data_s = np.tile(data_s[:, 1], data_g.shape[0])
+        tiled_data = np.concat((tiled_data_s, data_g[:, :, 1]), axis=1)
+        self.x_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs:, 0])
+        self.x_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:, 0])
+        y_prev_train = np.zeros((self.x_train.size(0), self.total_samples-1, self.model_y_inputs)) # y_prev doesn't include the last sample, so use total_samples - 1
+        y_prev_test = np.zeros((self.x_test.size(0), self.total_samples-1, self.model_y_inputs))
+        # Probably faster, more difficult way:
+        for y_i in range(self.total_samples-1):
+            # Fill a diagonal of identical values
+            y_prev = tiled_data[:, y_i]
+            sample_indices = range(max(y_i+1-self.model_y_inputs, 0), y_i+1)
+            input_indices = range(y_i, max(y_i-self.model_y_inputs, -1), -1)
+            y_prev_train[:, sample_indices, input_indices] = y_prev[self.test_size:]
+            y_prev_test[:, sample_indices, input_indices] = y_prev[:self.test_size]
+        # Probably slower, easier way:
+        y_starts = range(self.interpolations + self.extrapolations)
+        #y_inputs = range(self.model_y_inputs)
+        #for y_start in y_starts:
+        #    for y_input in y_inputs:
+        #        y_s_i = tiled_data[:, y_start + y_input]
+        #        y_prev_train[:, y_start, y_input] = y_s_i[self.test_size:]
+        #        y_prev_test[:, y_start, y_input] = y_s_i[:self.test_size]
+
         y_prev_interp_train = np.zeros((self.x_interp_train.size(0), self.interpolations, self.model_y_inputs))
         y_prev_interp_test = np.zeros((self.x_interp_test.size(0), self.interpolations, self.model_y_inputs))
         for start in y_starts:
@@ -37,8 +58,8 @@ class UFIE:
         #self.y_prev_interp_train = torch.from_numpy(data_g[self.test_size:, :self.interpolations, 1])
         #self.y_prev_interp_test = torch.from_numpy(data_g[:self.test_size, :self.interpolations, 1])
         # TODO: the targets will be tiled data_s for 0:interpolations, and data_g for interpolations:end; testing data will be tiled data_s for 0:interpolations (same values as training), and data_g for interpolations:end
-        self.y_target_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs:self.data_boundary, 1])
-        self.y_target_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:self.data_boundary, 1])
+        self.y_target_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs:self.sample_boundary, 1])
+        self.y_target_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:self.sample_boundary, 1])
         self.y_total_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:, 1])
         step = data_g[0, -1, 0] - data_g[0, -2, 0]
         start = data_g[0, -1, 0] + step
