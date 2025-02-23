@@ -19,9 +19,6 @@ class UFIE:
         self.total_samples = data_g.shape[1]
         self.interpolations = self.sample_boundary - self.model_y_inputs
         self.extrapolations = self.total_samples - self.sample_boundary
-        #self.extrapolations = configs['extrapolations']
-        #self.interpolations = data_g.shape[1] - self.extrapolations - 1
-        # TODO: instead of separate interpolation and extrapolation data, have e.g. x_train and y_prev_train, and the latter will be the tiled data_s for 0:interpolations, and data_g for interpolations:end
         # load data and make training set
         tiled_data_s = np.tile(data_s[:, 1], data_g.shape[0])
         tiled_data = np.concat((tiled_data_s, data_g[:, :, 1]), axis=1)
@@ -31,36 +28,25 @@ class UFIE:
         y_prev_test = np.zeros((self.x_test.size(0), self.total_samples-1, self.model_y_inputs))
         # Probably faster, more difficult way:
         for y_i in range(self.total_samples-1):
-            # Fill a diagonal of identical values
+            # Fill a diagonal of values from the same sample
             y_prev = tiled_data[:, y_i]
             sample_indices = range(max(y_i+1-self.model_y_inputs, 0), y_i+1)
             input_indices = range(y_i, max(y_i-self.model_y_inputs, -1), -1)
             y_prev_train[:, sample_indices, input_indices] = y_prev[self.test_size:]
             y_prev_test[:, sample_indices, input_indices] = y_prev[:self.test_size]
         # Probably slower, easier way:
-        y_starts = range(self.interpolations + self.extrapolations)
+        #y_starts = range(self.interpolations + self.extrapolations)
         #y_inputs = range(self.model_y_inputs)
         #for y_start in y_starts:
         #    for y_input in y_inputs:
         #        y_s_i = tiled_data[:, y_start + y_input]
         #        y_prev_train[:, y_start, y_input] = y_s_i[self.test_size:]
         #        y_prev_test[:, y_start, y_input] = y_s_i[:self.test_size]
+        self.y_prev_train = torch.from_numpy(y_prev_train)
+        self.y_prev_test = torch.from_numpy(y_prev_test)
 
-        y_prev_interp_train = np.zeros((self.x_interp_train.size(0), self.interpolations, self.model_y_inputs))
-        y_prev_interp_test = np.zeros((self.x_interp_test.size(0), self.interpolations, self.model_y_inputs))
-        for start in y_starts:
-            dataset = data_s[start:(start + self.model_y_inputs), 1]
-            y_prev_interp_train[:, start, :] = np.tile(dataset, (y_prev_interp_train.shape[0], 1))
-            y_prev_interp_test[:, start, :] = np.tile(dataset, (y_prev_interp_test.shape[0], 1))
-        # datasets, samples, inputs
-        self.y_prev_interp_train = torch.from_numpy(y_prev_interp_train)
-        self.y_prev_interp_test = torch.from_numpy(y_prev_interp_test)
-        #self.y_prev_interp_train = torch.from_numpy(data_g[self.test_size:, :self.interpolations, 1])
-        #self.y_prev_interp_test = torch.from_numpy(data_g[:self.test_size, :self.interpolations, 1])
-        # TODO: the targets will be tiled data_s for 0:interpolations, and data_g for interpolations:end; testing data will be tiled data_s for 0:interpolations (same values as training), and data_g for interpolations:end
-        self.y_target_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs:self.sample_boundary, 1])
-        self.y_target_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:self.sample_boundary, 1])
-        self.y_total_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:, 1])
+        self.y_target_train = torch.from_numpy(tiled_data[self.test_size:, self.model_y_inputs:])
+        self.y_target_test = torch.from_numpy(tiled_data[:self.test_size, self.model_y_inputs:])
         step = data_g[0, -1, 0] - data_g[0, -2, 0]
         start = data_g[0, -1, 0] + step
         stop = start + self.extrapolations * step
@@ -80,7 +66,7 @@ class UFIE:
 
     def calculate_error(self):
         self.optimizer.zero_grad()
-        out = self.model(self.x_interp_train, self.y_prev_interp_train)
+        out = self.model(self.x_train, self.y_prev_train)
         loss = self.criterion(out, self.y_target_train)
         if self.iteration % self.step_size == 0:
             print('train loss:', loss.item())
@@ -91,7 +77,7 @@ class UFIE:
     def predict(self):
         # begin to predict, no need to track gradient here
         with torch.no_grad():
-            pred = self.model(self.x_interp_test, self.y_prev_interp_test, self.x_extrap)
+            pred = self.model(self.x_test, self.y_prev_test, self.x_extrap)
             loss = self.criterion(pred[:, :-self.extrapolations], self.y_target_test)
             if self.iteration % self.step_size == 0:
                 print('test loss:', loss.item())
@@ -114,5 +100,5 @@ class UFIE:
             if self.iteration % self.step_size == 0:
                 exe_times.append(time.time() - start_time)
                 if self.iteration % (4 * self.step_size) == 0:
-                    live_plots.draw_plots(self.iteration, self.y_total_test, y, self.interpolations, self.extrapolations, self.descent_steps, exe_times, self.train_losses, self.test_losses)
+                    live_plots.draw_plots(self.iteration, self.y_target_test, y, self.interpolations, self.extrapolations, self.descent_steps, exe_times, self.train_losses, self.test_losses)
         live_plots.save('results/%.4f_%dx%d_%.2flr_%dsteps.pdf' % (self.test_losses[-1], self.depth, self.breadth, self.lr, self.steps))
