@@ -1,23 +1,23 @@
 {
     "data": {
-        "coefficients": [-20, 2, -0.4, 0.02],
-        "interpolations": 100,
-        "extrapolations": 100,
+        "coefficients": [-10, 2, -0.1],
+        "specific_samples": 100,
+        "general_samples": 200,
         "datasets": 100,
         "start": 0,
         "separation": 1,
         "shift": 5,
         "base_scale": 1,
-        "equation_scale": 0,
+        "equation_scale": 1,
         "term_scale": 0
     },
     "model": {
         "mode": "xy",
         "model_y_inputs": 10,
-        "depth": 2,
+        "depth": 4,
         "breadth": 40,
         "lr": 0.005,
         "test_size": 5,
-        "steps": 8000
+        "steps": 5000
     }
 }

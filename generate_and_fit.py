@@ -17,9 +17,12 @@ if __name__ == '__main__':
     ufie.converge()
 
 # Priority Tasks
-# - Have interface that receives a single dataset to fit, optionally along with other datasets in the zone of extrapolation, used to offer another means of generalizing that zone
-# 	- Generalize the other datasets by sliding a range of prior y values as input through the extrapolation zone, and using that along with current x (or equivalent range of x's?) to predict subsequent y values
-# 	- This way, the model is trained in the interpolation zone using the fitted dataset, and in the extrapolation zone using the other datasets
+# - Make data_g an optional parameter
+# - Exclude specific dataset (at index 0) from test data, and make it a third category by itself, so that the test data will be more comparable to the training data, and the loss of the ultimately desired prediction is shown
+# - Test simpler, nested loop implementation of training data creation
+# - Make results directory part of repo to avoid error in creating pdfs after initial clone
+# - Todos
+# - Test specific-general-implementation with different configs
 # - Compare master to x_k, y_k => y_k+1
 # Stretch
 # - Incorporate non-polynomial functions (trigonometric, exponential, logarithmic, etc.)

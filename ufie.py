@@ -20,21 +20,22 @@ class UFIE:
         self.interpolations = self.sample_boundary - self.model_y_inputs
         self.extrapolations = self.total_samples - self.sample_boundary
         # load data and make training set
-        tiled_data_s = np.tile(data_s[:, 1], data_g.shape[0])
-        tiled_data = np.concat((tiled_data_s, data_g[:, :, 1]), axis=1)
+        tiled_data_s = np.tile(data_s[:, 1], (data_g.shape[0], 1))
+        tiled_data = np.concat((tiled_data_s, data_g[:, self.sample_boundary:, 1]), axis=1)
         self.x_train = torch.from_numpy(data_g[self.test_size:, self.model_y_inputs:, 0])
         self.x_test = torch.from_numpy(data_g[:self.test_size, self.model_y_inputs:, 0])
-        y_prev_train = np.zeros((self.x_train.size(0), self.total_samples-1, self.model_y_inputs)) # y_prev doesn't include the last sample, so use total_samples - 1
-        y_prev_test = np.zeros((self.x_test.size(0), self.total_samples-1, self.model_y_inputs))
-        # Probably faster, more difficult way:
-        for y_i in range(self.total_samples-1):
+        train_samples = self.total_samples - self.model_y_inputs
+        y_prev_train = np.zeros((self.x_train.size(0), train_samples, self.model_y_inputs))
+        y_prev_test = np.zeros((self.x_test.size(0), train_samples, self.model_y_inputs))
+        # Probably faster, more complex way:
+        for y_i in range(train_samples + self.model_y_inputs - 1): # exclude the sample in the range to slide the diagonal across
             # Fill a diagonal of values from the same sample
             y_prev = tiled_data[:, y_i]
-            sample_indices = range(max(y_i+1-self.model_y_inputs, 0), y_i+1)
-            input_indices = range(y_i, max(y_i-self.model_y_inputs, -1), -1)
-            y_prev_train[:, sample_indices, input_indices] = y_prev[self.test_size:]
-            y_prev_test[:, sample_indices, input_indices] = y_prev[:self.test_size]
-        # Probably slower, easier way:
+            sample_indices = range(max(y_i+1-self.model_y_inputs, 0), min(y_i+1, train_samples))
+            input_indices = range(min(y_i, self.model_y_inputs-1), max(y_i-train_samples, -1), -1)
+            y_prev_train[:, sample_indices, input_indices] = y_prev[self.test_size:, None]
+            y_prev_test[:, sample_indices, input_indices] = y_prev[:self.test_size, None]
+        # Probably slower, simpler way:
         #y_starts = range(self.interpolations + self.extrapolations)
         #y_inputs = range(self.model_y_inputs)
         #for y_start in y_starts:
@@ -44,14 +45,8 @@ class UFIE:
         #        y_prev_test[:, y_start, y_input] = y_s_i[:self.test_size]
         self.y_prev_train = torch.from_numpy(y_prev_train)
         self.y_prev_test = torch.from_numpy(y_prev_test)
-
         self.y_target_train = torch.from_numpy(tiled_data[self.test_size:, self.model_y_inputs:])
         self.y_target_test = torch.from_numpy(tiled_data[:self.test_size, self.model_y_inputs:])
-        step = data_g[0, -1, 0] - data_g[0, -2, 0]
-        start = data_g[0, -1, 0] + step
-        stop = start + self.extrapolations * step
-        shift = data_g[:self.test_size, -1, 0].reshape(self.test_size, 1) + step - start
-        self.x_extrap = torch.from_numpy(np.arange(start, stop, step) + shift)
         # build the model
         self.model = FunctionModel(self.depth, self.breadth, mode=self.mode, y_length=self.model_y_inputs)
         self.model.double()
@@ -77,8 +72,9 @@ class UFIE:
     def predict(self):
         # begin to predict, no need to track gradient here
         with torch.no_grad():
-            pred = self.model(self.x_test, self.y_prev_test, self.x_extrap)
-            loss = self.criterion(pred[:, :-self.extrapolations], self.y_target_test)
+            pred = self.model(self.x_test, self.y_prev_test)
+            loss = self.criterion(pred, self.y_target_test)
+            #loss = self.criterion(pred[:, :-self.extrapolations], self.y_target_test[:, :self.interpolations])
             if self.iteration % self.step_size == 0:
                 print('test loss:', loss.item())
                 self.test_losses.append(loss.item())

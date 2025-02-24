@@ -40,7 +40,7 @@ class FunctionModel(nn.Module):
         output = self.linearO(h)
         return output
 
-    def forward(self, x_interp, y_prev_interp, x_extrap=torch.empty((1, 0))):
+    def forward(self, x_interp, y_prev_interp):
         assert x_interp.size(1) == y_prev_interp.size(1)
         # Interpolate
         if y_prev_interp.dim() == 2:
@@ -49,7 +49,7 @@ class FunctionModel(nn.Module):
         #output_list = list(output_tensor.split(1, dim=1))
         # Extrapolate if there are extrapolation inputs
         # TODO: use general data for extrapolation; edit: actually, I think this loop will just be deleted and this function will simply be the above
-        for i in range(x_extrap.size(1)):
-            output_tensor = torch.cat([output_tensor, self.network(x_extrap[:, i, None], output_tensor[:, -self.y_length:])], dim=1)
+        #for i in range(x_extrap.size(1)):
+        #    output_tensor = torch.cat([output_tensor, self.network(x_extrap[:, i, None], output_tensor[:, -self.y_length:])], dim=1)
         #output_tensor = torch.cat(output_list, dim=1)
         return output_tensor
