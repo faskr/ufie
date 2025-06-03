@@ -25,7 +25,7 @@ def generate_inputs(configs):
     specific = np.array(range(configs['start'], stop_interp, configs['separation']))
     # Make the first dataset a base unshifted set, and make the rest be randomly shifted sets
     start_extrap = configs['start']
-    stop_extrap = start_extrap + (configs['general_samples']) * configs['separation']
+    stop_extrap = start_extrap + configs['general_samples'] * configs['separation']
     shift_extrap = np.concat([np.array([0]), (np.random.randint(-configs['shift'], configs['shift'] + 1, configs['datasets'] - 1))])
     general = np.array(range(start_extrap, stop_extrap, configs['separation'])) + shift_extrap.reshape(configs['datasets'], 1)
     return specific, general

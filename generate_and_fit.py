@@ -17,7 +17,7 @@ if __name__ == '__main__':
     ufie.converge()
 
 # Priority Tasks
-# - Make data_g an optional parameter
+# - Make data_g an optional parameter, and if it's not provided, have a parameter total_samples that is required
 # - Exclude specific dataset (at index 0) from test data, and make it a third category by itself, so that the test data will be more comparable to the training data, and the loss of the ultimately desired prediction is shown
 # - Test simpler, nested loop implementation of training data creation
 # - Make results directory part of repo to avoid error in creating pdfs after initial clone
