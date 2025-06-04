@@ -3,8 +3,10 @@ import json
 from generate_data import *
 from ufie import *
 
-# Purpose 1: interpolate and extrapolate function given its data points (simple regression - generalization to other data points)
-# Purpose 2: interpolate and extrapolate function given its data points and those from similar functions (hence generating many polynomials - generalization to other polynomials)
+# Use case 1: interpolate and extrapolate function given its data points (simple regression - generalization to other data points)
+# Use case 2: interpolate and extrapolate function given its data points and those from similar functions (hence generating many polynomials - generalization to other polynomials)
+    # Interpolate from data of function
+    # Extrapolate from data of similar functions (which can include the function itself)
 if __name__ == '__main__':
     np.random.seed(0)
     torch.manual_seed(0)
@@ -17,7 +19,7 @@ if __name__ == '__main__':
     ufie.converge()
 
 # Priority Tasks
-# - Make data_g an optional parameter, and if it's not provided, have a parameter total_samples that is required
+# - Make data_g an optional parameter, and if it's not provided, have a parameter total_samples (or # extrapolations) that is required
 # - Exclude specific dataset (at index 0) from test data, and make it a third category by itself, so that the test data will be more comparable to the training data, and the loss of the ultimately desired prediction is shown
 # - Test simpler, nested loop implementation of training data creation
 # - Make results directory part of repo to avoid error in creating pdfs after initial clone
