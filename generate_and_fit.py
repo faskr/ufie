@@ -15,11 +15,11 @@ if __name__ == '__main__':
         configs = json.load(input_file)
 
     data_s, data_g = generate_polynomials(configs['data'])
-    ufie = UFIE(data_s, data_g, configs['model'])
+    # ufie = UFIE(configs['model'], data_s, data_g)
+    ufie = UFIE(configs['model'], data_g[0, :, :], sample_boundary=100)
     ufie.converge()
 
 # Priority Tasks
-# - Make data_g an optional parameter, and if it's not provided, have a parameter total_samples (or # extrapolations) that is required
 # - Exclude specific dataset (at index 0) from test data, and make it a third category by itself, so that the test data will be more comparable to the training data, and the loss of the ultimately desired prediction is shown
 # - Test simpler, nested loop implementation of training data creation
 # - Make results directory part of repo to avoid error in creating pdfs after initial clone

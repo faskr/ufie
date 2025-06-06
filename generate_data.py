@@ -35,10 +35,10 @@ def generate_polynomials(configs, save_file=True):
     data_s = np.vstack([x_s, np.zeros(x_s.shape)]).T
     data_g = np.dstack([x_g, np.zeros(x_g.shape)])
     # Make the first dataset a base unscaled set, and make the rest be randomly scaled sets
-    equation_scale = np.concat([np.array([0]), (configs['equation_scale'] * np.random.rand(configs['datasets'] - 1))])
+    equation_scale = np.concat([np.array([0]), (configs['equation_scale'] * np.random.uniform(-1, 1, configs['datasets'] - 1))])
     for k, c in enumerate(configs['coefficients']):
         data_s[:, 1] += c * np.pow(x_s, k)
-        term_scale = np.concat([np.array([0]), (configs['term_scale'] * np.random.rand(configs['datasets'] - 1))])
+        term_scale = np.concat([np.array([0]), (configs['term_scale'] * np.random.uniform(-1, 1, configs['datasets'] - 1))])
         scale = configs['base_scale'] + equation_scale + term_scale
         data_g[:, :, 1] += c * np.pow(x_g, k) * scale.reshape(configs['datasets'], 1)
     if save_file:

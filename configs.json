@@ -17,7 +17,7 @@
         "depth": 4,
         "breadth": 40,
         "lr": 0.005,
-        "test_size": 5,
-        "steps": 5000
+        "steps": 5000,
+        "test_size": 5
     }
 }
