@@ -15,17 +15,22 @@ if __name__ == '__main__':
         configs = json.load(input_file)
 
     data_s, data_g = generate_polynomials(configs['data'])
-    # ufie = UFIE(configs['model'], data_s, data_g)
-    ufie = UFIE(configs['model'], data_g[0, :, :], sample_boundary=100)
+    ufie = UFIE(configs['model'], data_s, data_g)
+    # ufie = UFIE(configs['model'], data_g[0, :, :], sample_boundary=100)
     ufie.converge()
 
 # Priority Tasks
-# - Exclude specific dataset (at index 0) from test data, and make it a third category by itself, so that the test data will be more comparable to the training data, and the loss of the ultimately desired prediction is shown
+# - In theory, training interp and extrap together is bad for extrap, because the functions are discontinuous, which is bad for the fit
+#   - Instead, try separating data into two meta-datasets, one for interp and one for extrap; interp is just the specific dataset in the 
+#     interp zone, tiled repeatedly into a small matrix (to build up interp learning), and extrap is the general datasets in the extrap 
+#     zone; this is not much different, except that interp and extrap won't be connected to each other
+#   - *In theory*, this should have lower loss, at least for the extrapolation zone if not overall
 # - Test simpler, nested loop implementation of training data creation
 # - Make results directory part of repo to avoid error in creating pdfs after initial clone
 # - Todos
 # - Test specific-general-implementation with different configs
 # - Compare master to x_k, y_k => y_k+1
+# - Merge whatever I think is good to merge to master
 # Stretch
 # - Incorporate non-polynomial functions (trigonometric, exponential, logarithmic, etc.)
 #   - Create a library just for parsing functions using the protocol in docs/protocol_idea.txt, and for creating data from them

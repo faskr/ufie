@@ -7,7 +7,7 @@ class LivePlots:
         self.predictions = predictions
         self.figure_created = False
 
-    def create_figure(self, y_truth, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses):
+    def create_figure(self, y_truth, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses, specific_losses):
         # figure
         plt.ion()
         gs = gridspec.GridSpec(2, 2)
@@ -28,29 +28,33 @@ class LivePlots:
         self.ax2.set_ylabel('y')
         for i in range(1, self.predictions):
             self.ax2.plot(x, y_truth[i, :])
-            self.generalized_plots += [self.ax2.plot(np.arange(1, known_points + 1), y[i][:known_points]) +
-                                       self.ax2.plot(np.arange(known_points + 1, known_points + predicted_points + 1), y[i][known_points:], ':')]
+            self.generalized_plots += [
+                self.ax2.plot(np.arange(1, known_points + 1), y[i][:known_points]) +
+                self.ax2.plot(np.arange(known_points + 1, known_points + predicted_points + 1), y[i][known_points:], ':')
+            ]
             self.generalized_plots[-1][1].set_color(self.generalized_plots[-1][0].get_color())
         # loss plot (steps)
         self.ax3 = self.fig.add_subplot(gs[1, 0])
         self.ax3.set_xlabel('step')
         self.ax3.set_ylabel('loss')
         self.ax3.set_yscale('log')
-        self.train_plot_steps, = self.ax3.plot(descent_steps, train_losses, 'b')
-        self.test_plot_steps, = self.ax3.plot(descent_steps, test_losses, 'r')
-        self.ax3.legend(['Training', 'Testing'])
+        self.train_plot_steps, = self.ax3.plot(descent_steps, train_losses, 'r')
+        self.test_plot_steps, = self.ax3.plot(descent_steps, test_losses, 'b')
+        self.specific_plot_steps, = self.ax3.plot(descent_steps, specific_losses, 'g')
+        self.ax3.legend(['Training', 'Testing', 'Specific'])
         # loss plot (time)
         self.ax4 = self.fig.add_subplot(gs[1, 1])
         self.ax4.set_xlabel('seconds')
         self.ax4.set_ylabel('loss')
         self.ax4.set_yscale('log')
-        self.train_plot_time, = self.ax4.plot(exe_times, train_losses, 'b')
-        self.test_plot_time, = self.ax4.plot(exe_times, test_losses, 'r')
-        self.ax4.legend(['Training', 'Testing'])
+        self.train_plot_time, = self.ax4.plot(exe_times, train_losses, 'r')
+        self.test_plot_time, = self.ax4.plot(exe_times, test_losses, 'b')
+        self.specific_plot_time, = self.ax4.plot(exe_times, specific_losses, 'g')
+        self.ax4.legend(['Training', 'Testing', 'Specific'])
         # figure is created
         self.figure_created = True
 
-    def update_figure(self, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses):
+    def update_figure(self, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses, specific_losses):
         # fit and prediction plots
         for i in range(self.predictions):
             self.generalized_plots[i][0].set_xdata(np.arange(1, known_points + 1))
@@ -66,6 +70,8 @@ class LivePlots:
         self.train_plot_steps.set_ydata(train_losses)
         self.test_plot_steps.set_xdata(descent_steps)
         self.test_plot_steps.set_ydata(test_losses)
+        self.specific_plot_steps.set_xdata(descent_steps)
+        self.specific_plot_steps.set_ydata(specific_losses)
         self.ax3.relim()
         self.ax3.autoscale_view()
         # loss plot (time)
@@ -73,18 +79,21 @@ class LivePlots:
         self.train_plot_time.set_ydata(train_losses)
         self.test_plot_time.set_xdata(exe_times)
         self.test_plot_time.set_ydata(test_losses)
+        self.specific_plot_time.set_xdata(exe_times)
+        self.specific_plot_time.set_ydata(specific_losses)
         self.ax4.relim()
         self.ax4.autoscale_view()
 
-    def draw_plots(self, iteration, y_truth, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses):
+    def draw_plots(self, iteration, y_truth, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses, 
+                   specific_losses):
         if not self.figure_created:
-            self.create_figure(y_truth, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses)
+            self.create_figure(y_truth, y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses, specific_losses)
         else:
-            self.update_figure(y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses)
+            self.update_figure(y, known_points, predicted_points, descent_steps, exe_times, train_losses, test_losses, specific_losses)
         self.ax1.set_title('True specified function vs. fit & predictionn\nIteration %d' % iteration)
         self.ax2.set_title('True random functions vs. fit & prediction\nIteration %d' % iteration)
-        self.ax3.set_title('Convergence (train=%.4f, test=%.4f)' % (train_losses[-1], test_losses[-1]))
-        self.ax4.set_title('Convergence (train=%.4f, test=%.4f)' % (train_losses[-1], test_losses[-1]))
+        self.ax3.set_title('Convergence (train=%.4f, test=%.4f, specific=%.4f)' % (train_losses[-1], test_losses[-1], specific_losses[-1]))
+        self.ax4.set_title('Convergence (train=%.4f, test=%.4f, specific=%.4f)' % (train_losses[-1], test_losses[-1], specific_losses[-1]))
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 

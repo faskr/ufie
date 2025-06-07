@@ -37,8 +37,8 @@ class UFIE:
         else:
             tiled_data = data_s[None, :, 1]
             self.x = torch.from_numpy(data_s[None, self.model_y_inputs:, 0])
-            self.x_train = self.x[:, :self.sample_boundary-self.model_y_inputs]
-            self.x_test = self.x[:, self.sample_boundary-self.model_y_inputs:]
+            self.x_train = self.x[:, :self.interpolations]
+            self.x_test = self.x[:, self.interpolations:]
         model_samples = self.total_samples - self.model_y_inputs
         y_prev = np.zeros((self.x.size(0), model_samples, self.model_y_inputs))
         # Probably faster, more complex way:
@@ -63,8 +63,8 @@ class UFIE:
             self.y_target_test = torch.from_numpy(tiled_data[:self.test_size, self.model_y_inputs:])
             self.y_target = self.y_target_test
         else:
-            self.y_prev_train = torch.from_numpy(y_prev[:, :self.sample_boundary-self.model_y_inputs, :])
-            self.y_prev_test = torch.from_numpy(y_prev[:, self.sample_boundary-self.model_y_inputs:, :])
+            self.y_prev_train = torch.from_numpy(y_prev[:, :self.interpolations, :])
+            self.y_prev_test = torch.from_numpy(y_prev[:, self.interpolations:, :])
             self.y_target_train = torch.from_numpy(tiled_data[:, self.model_y_inputs:self.sample_boundary])
             self.y_target_test = torch.from_numpy(tiled_data[:, self.sample_boundary:])
             self.y_target = torch.cat((self.y_target_train, self.y_target_test), dim=1)
@@ -77,6 +77,7 @@ class UFIE:
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         self.descent_steps = []
         self.train_losses = []
+        self.specific_losses = []
         self.test_losses = []
         self.step_size = 25
 
@@ -94,9 +95,17 @@ class UFIE:
         # begin to predict, no need to track gradient here
         with torch.no_grad():
             pred = self.model(self.x_test, self.y_prev_test)
-            loss = self.criterion(pred, self.y_target_test)
-            #loss = self.criterion(pred[:, :-self.extrapolations], self.y_target_test[:, :self.interpolations])
+            if self.trained_extrap:
+                loss_s = self.criterion(pred[0, :], self.y_target_test[0, :])
+                loss = self.criterion(pred[1:, :], self.y_target_test[1:, :])
+            else:
+                loss = self.criterion(pred, self.y_target_test)
             if self.iteration % self.step_size == 0:
+                if self.trained_extrap:
+                    print('specific loss:', loss_s.item())
+                    self.specific_losses.append(loss_s.item())
+                else:
+                    self.specific_losses.append(loss.item())
                 print('test loss:', loss.item())
                 self.test_losses.append(loss.item())
             y = pred.detach().numpy()
@@ -121,5 +130,6 @@ class UFIE:
             if self.iteration % self.step_size == 0:
                 exe_times.append(time.time() - start_time)
                 if self.iteration % (4 * self.step_size) == 0:
-                    live_plots.draw_plots(self.iteration, self.y_target, y, self.interpolations, self.extrapolations, self.descent_steps, exe_times, self.train_losses, self.test_losses)
+                    live_plots.draw_plots(self.iteration, self.y_target, y, self.interpolations, self.extrapolations, self.descent_steps, 
+                                          exe_times, self.train_losses, self.test_losses, self.specific_losses)
         live_plots.save('results/%.4f_%dx%d_%.2flr_%dsteps.pdf' % (self.test_losses[-1], self.depth, self.breadth, self.lr, self.steps))
