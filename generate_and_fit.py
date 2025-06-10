@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     data_s, data_g = generate_polynomials(configs['data'])
     ufie = UFIE(configs['model'], data_s, data_g)
-    # ufie = UFIE(configs['model'], data_g[0, :, :], sample_boundary=100)
+    # ufie = UFIE(configs['model'], data_g[0, :, :], num_specific_samples=100)
     ufie.converge()
 
 # Priority Tasks

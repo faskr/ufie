@@ -7,10 +7,10 @@ from function_model import *
 from plots import *
 
 class UFIE:
-    def __init__(self, configs, data_s, data_g=None, sample_boundary=None):
+    def __init__(self, configs, data_s, data_g=None, num_specific_samples=None):
         self.trained_extrap = isinstance(data_g, np.ndarray) # whether extrapolation is trained or not
-        if not self.trained_extrap and not sample_boundary:
-            raise ValueError("Either data_g or sample_boundary must be provided")
+        if not self.trained_extrap and not num_specific_samples:
+            raise ValueError("Either data_g or num_specific_samples must be provided")
         self.mode = configs['mode']
         self.model_y_inputs = configs['model_y_inputs']
         self.depth = configs['depth']
@@ -19,35 +19,42 @@ class UFIE:
         self.steps = configs['steps']
         if self.trained_extrap:
             self.test_size = configs['test_size']
-            self.sample_boundary = data_s.shape[0]
+            self.num_specific_samples = data_s.shape[0]
             self.total_samples = data_g.shape[1]
         else:
             self.test_size = 1
-            self.sample_boundary = sample_boundary
+            self.num_specific_samples = num_specific_samples
             self.total_samples = data_s.shape[0]
-        self.interpolations = self.sample_boundary - self.model_y_inputs
-        self.extrapolations = self.total_samples - self.sample_boundary
+        self.interpolations = self.num_specific_samples - self.model_y_inputs
+        self.extrapolations = self.total_samples - self.num_specific_samples
         # load data and make training set
         if self.trained_extrap:
             tiled_data_s = np.tile(data_s[:, 1], (data_g.shape[0], 1))
-            tiled_data = np.concat((tiled_data_s, data_g[:, self.sample_boundary:, 1]), axis=1)
+            tiled_data_g = data_g[:, self.interpolations:, 1]
             self.x = torch.from_numpy(data_g[:, self.model_y_inputs:, 0])
             self.x_train = self.x[self.test_size:, :]
             self.x_test = self.x[:self.test_size, :]
+            y_prev_g = np.zeros((self.x.size(0), self.extrapolations, self.model_y_inputs))
+            for y_i in range(self.extrapolations + self.model_y_inputs - 1): # exclude the sample in the range to slide the diagonal across
+                # For each dataset, fill a diagonal of values with a single sample
+                y_prev_values = tiled_data_g[:, y_i]
+                sample_indices = range(max(y_i+1-self.model_y_inputs, 0), min(y_i+1, self.extrapolations))
+                input_indices = range(min(y_i, self.model_y_inputs-1), max(y_i-self.extrapolations, -1), -1)
+                y_prev_g[:, sample_indices, input_indices] = y_prev_values[:, None]
         else:
-            tiled_data = data_s[None, :, 1]
+            tiled_data_s = data_s[None, :, 1]
             self.x = torch.from_numpy(data_s[None, self.model_y_inputs:, 0])
             self.x_train = self.x[:, :self.interpolations]
             self.x_test = self.x[:, self.interpolations:]
         model_samples = self.total_samples - self.model_y_inputs
-        y_prev = np.zeros((self.x.size(0), model_samples, self.model_y_inputs))
         # Probably faster, more complex way:
-        for y_i in range(model_samples + self.model_y_inputs - 1): # exclude the sample in the range to slide the diagonal across
+        y_prev_s = np.zeros((self.x.size(0), self.interpolations, self.model_y_inputs))
+        for y_i in range(self.num_specific_samples - 1): # exclude the sample in the range to slide the diagonal across
             # For each dataset, fill a diagonal of values with a single sample
-            y_prev_values = tiled_data[:, y_i]
-            sample_indices = range(max(y_i+1-self.model_y_inputs, 0), min(y_i+1, model_samples))
-            input_indices = range(min(y_i, self.model_y_inputs-1), max(y_i-model_samples, -1), -1)
-            y_prev[:, sample_indices, input_indices] = y_prev_values[:, None]
+            y_prev_values = tiled_data_s[:, y_i]
+            sample_indices = range(max(y_i+1-self.model_y_inputs, 0), min(y_i+1, self.interpolations))
+            input_indices = range(min(y_i, self.model_y_inputs-1), max(y_i-self.interpolations, -1), -1)
+            y_prev_s[:, sample_indices, input_indices] = y_prev_values[:, None]
         # Probably slower, simpler way:
         #y_starts = range(self.interpolations + self.extrapolations)
         #y_inputs = range(self.model_y_inputs)
@@ -57,17 +64,22 @@ class UFIE:
         #        y_prev_train[:, y_start, y_input] = y_s_i[self.test_size:]
         #        y_prev_test[:, y_start, y_input] = y_s_i[:self.test_size]
         if self.trained_extrap:
-            self.y_prev_train = torch.from_numpy(y_prev[self.test_size:, :, :])
-            self.y_prev_test = torch.from_numpy(y_prev[:self.test_size, :, :])
-            self.y_target_train = torch.from_numpy(tiled_data[self.test_size:, self.model_y_inputs:])
-            self.y_target_test = torch.from_numpy(tiled_data[:self.test_size, self.model_y_inputs:])
-            self.y_target = self.y_target_test
+            self.y_prev_train_s = torch.from_numpy(y_prev_s[self.test_size:, :, :])
+            self.y_prev_test_s = torch.from_numpy(y_prev_s[:self.test_size, :, :])
+            self.y_target_train_s = torch.from_numpy(tiled_data_s[self.test_size:, self.model_y_inputs:])
+            self.y_target_test_s = torch.from_numpy(tiled_data_s[:self.test_size, self.model_y_inputs:])
+            self.y_target_s = self.y_target_test_s
+            self.y_prev_train_g = torch.from_numpy(y_prev_g[self.test_size:, :, :])
+            self.y_prev_test_g = torch.from_numpy(y_prev_g[:self.test_size, :, :])
+            self.y_target_train_g = torch.from_numpy(tiled_data_g[self.test_size:, self.model_y_inputs:])
+            self.y_target_test_g = torch.from_numpy(tiled_data_g[:self.test_size, self.model_y_inputs:])
+            self.y_target_g = self.y_target_test_g
         else:
-            self.y_prev_train = torch.from_numpy(y_prev[:, :self.interpolations, :])
-            self.y_prev_test = torch.from_numpy(y_prev[:, self.interpolations:, :])
-            self.y_target_train = torch.from_numpy(tiled_data[:, self.model_y_inputs:self.sample_boundary])
-            self.y_target_test = torch.from_numpy(tiled_data[:, self.sample_boundary:])
-            self.y_target = torch.cat((self.y_target_train, self.y_target_test), dim=1)
+            self.y_prev_train_s = torch.from_numpy(y_prev_s[:, :self.interpolations, :])
+            self.y_prev_test_s = torch.from_numpy(y_prev_s[:, self.interpolations:, :])
+            self.y_target_train_s = torch.from_numpy(tiled_data_s[:, self.model_y_inputs:self.num_specific_samples])
+            self.y_target_test_s = torch.from_numpy(tiled_data_s[:, self.num_specific_samples:])
+            self.y_target_s = torch.cat((self.y_target_train_s, self.y_target_test_s), dim=1)
         # build the model
         self.model = FunctionModel(self.depth, self.breadth, mode=self.mode, y_length=self.model_y_inputs)
         self.model.double()
@@ -83,8 +95,11 @@ class UFIE:
 
     def calculate_error(self):
         self.optimizer.zero_grad()
-        self.train_out = self.model(self.x_train, self.y_prev_train)
-        loss = self.criterion(self.train_out, self.y_target_train)
+        self.train_out_s = self.model(self.x_train, self.y_prev_train_s)
+        loss = self.criterion(self.train_out_s, self.y_target_train_s)
+        if self.trained_extrap:
+            self.train_out_g = self.model(self.x_train, self.y_prev_train_g)
+            loss += self.criterion(self.train_out_g, self.y_target_train_g)
         if self.iteration % self.step_size == 0:
             print('train loss:', loss.item())
             self.train_losses.append(loss.item())
