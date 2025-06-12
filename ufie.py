@@ -109,12 +109,16 @@ class UFIE:
     def predict(self):
         # begin to predict, no need to track gradient here
         with torch.no_grad():
-            pred = self.model(self.x_test, self.y_prev_test)
             if self.trained_extrap:
-                loss_s = self.criterion(pred[0, :], self.y_target_test[0, :])
-                loss = self.criterion(pred[1:, :], self.y_target_test[1:, :])
+                pred_i = self.model(self.x_test[:, :self.interpolations], self.y_prev_test_s[:, :self.interpolations, :])
+                pred_e = self.model(self.x_test[:, self.interpolations:], self.y_prev_test_g[:, self.interpolations:, :])
+                loss_si = self.criterion(pred_i, self.y_target_test_s)
+                loss_se = self.criterion(pred_e[0, :], self.y_target_test_g[0, :])
+                loss_ge = self.criterion(pred_e[1:, :], self.y_target_test_g[1:, :])
             else:
-                loss = self.criterion(pred, self.y_target_test)
+                pred_e = self.model(self.x_test[:, self.interpolations:], self.y_prev_test_s)
+                loss_se = self.criterion(pred_e, self.y_target_test_s)
+
             if self.iteration % self.step_size == 0:
                 if self.trained_extrap:
                     print('specific loss:', loss_s.item())
